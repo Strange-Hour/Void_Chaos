@@ -3,12 +3,6 @@ description:
 globs: 
 alwaysApply: true
 ---
- ---
-description: Guidelines for writing and maintaining unit tests
-globs: ["**/*.ts", "**/*.tsx"]
-alwaysApply: true
----
-
 # Testing Guidelines
 
 - **Test File Organization**

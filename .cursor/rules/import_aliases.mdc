@@ -3,12 +3,6 @@ description:
 globs: 
 alwaysApply: true
 ---
- ---
-description: Guidelines for using and creating import aliases to maintain clean and consistent imports
-globs: ["**/*.ts", "**/*.tsx"]
-alwaysApply: true
----
-
 # Import Alias Guidelines
 
 - **Use Existing Aliases**
