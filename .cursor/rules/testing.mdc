@@ -1,0 +1,137 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ ---
+description: Guidelines for writing and maintaining unit tests
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: true
+---
+
+# Testing Guidelines
+
+- **Test File Organization**
+  - Place test files next to the files they test
+  - Use `.test.ts` or `.test.tsx` extension
+  - Mirror the source file structure
+  ```typescript
+  // ✅ DO: Place tests next to source files
+  src/
+    engine/
+      Canvas.ts
+      Canvas.test.ts
+      Sprite.ts
+      Sprite.test.ts
+    app/
+      components/
+        GameCanvas.tsx
+        GameCanvas.test.tsx
+
+  // ❌ DON'T: Separate tests into a different directory
+  src/
+    engine/
+      Canvas.ts
+  tests/
+    engine/
+      Canvas.test.ts
+  ```
+
+- **Test File Structure**
+  ```typescript
+  import { render, screen } from '@testing-library/react';
+  import { ComponentName } from './ComponentName';
+
+  describe('ComponentName', () => {
+    describe('method or functionality', () => {
+      it('should do something specific', () => {
+        // Arrange
+        // Act
+        // Assert
+      });
+    });
+  });
+  ```
+
+- **Testing Requirements**
+  - Write tests for:
+    - All public methods and functions
+    - Edge cases and error conditions
+    - Component rendering and interactions
+    - State management and updates
+  - Maintain minimum coverage thresholds:
+    - 80% branch coverage
+    - 80% function coverage
+    - 80% line coverage
+    - 80% statement coverage
+
+- **Best Practices**
+  - Use meaningful test descriptions
+  - Follow AAA pattern (Arrange, Act, Assert)
+  - Mock external dependencies
+  - Test one thing per test case
+  - Use setup and teardown when needed
+  ```typescript
+  // ✅ DO: Write clear, focused tests
+  it('should update player position when moving right', () => {
+    // Arrange
+    const player = new Player({ x: 0, y: 0 });
+    
+    // Act
+    player.moveRight();
+    
+    // Assert
+    expect(player.position.x).toBeGreaterThan(0);
+  });
+
+  // ❌ DON'T: Test multiple things in one test
+  it('should handle player movement', () => {
+    const player = new Player();
+    player.moveRight();
+    player.moveUp();
+    player.moveLeft();
+    expect(player.position).toBeDefined();
+  });
+  ```
+
+- **Task Completion Requirements**
+  1. Write tests before marking a task as complete
+  2. Update existing tests when modifying functionality
+  3. Ensure all tests pass before committing
+  4. Maintain or improve coverage percentages
+  5. Document test scenarios in task completion notes
+
+- **Testing Canvas and WebGL**
+  - Mock canvas context for unit tests
+  - Test rendering logic separately from DOM manipulation
+  - Use snapshot testing for complex renderings
+  - Test event handlers and interactions
+  ```typescript
+  // ✅ DO: Mock canvas operations
+  jest.spyOn(ctx, 'drawImage').mockImplementation();
+  
+  // ❌ DON'T: Rely on actual canvas rendering
+  ctx.drawImage(sprite, 0, 0);
+  ```
+
+- **Component Testing**
+  - Test rendering
+  - Test user interactions
+  - Test prop changes
+  - Test state updates
+  - Test error boundaries
+  ```typescript
+  // ✅ DO: Test component behavior
+  it('should respond to user interaction', () => {
+    render(<Button onClick={mockHandler} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(mockHandler).toHaveBeenCalled();
+  });
+  ```
+
+- **When to Update Tests**
+  - When adding new features
+  - When fixing bugs
+  - When refactoring code
+  - When improving test coverage
+  - When updating dependencies that affect testing

@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "generatedAt": "2025-04-11T15:38:23.979Z",
+    "tasksAnalyzed": 10,
+    "thresholdScore": 5,
+    "projectName": "Your Project Name",
+    "usedResearch": true
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 1,
+      "taskTitle": "Setup Canvas Rendering System",
+      "complexityScore": 9,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the task into subtasks for implementing: 1) Canvas initialization with scaling for devices, 2) Camera system and viewport management, 3) Render loop with frame synchronization, 4) Layering for rendering components, and 5) Performance optimization techniques like object pooling.",
+      "reasoning": "This task involves multiple interdependent components such as layering, scaling, rendering loops, and optimizations, which are foundational but technically demanding."
+    },
+    {
+      "taskId": 2,
+      "taskTitle": "Implement Entity Component System",
+      "complexityScore": 10,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the task into steps for: 1) Creating base classes for entities, components, and systems, 2) Developing core components (Transform, Renderer, etc.), 3) Integrating systems with the game loop, 4) Ensuring serialization for networking, and 5) Implementing fixed and variable time steps for physics and rendering.",
+      "reasoning": "This task requires a sophisticated architecture to manage game objects and behaviors, with a need for scalability and integration with the game loop."
+    },
+    {
+      "taskId": 3,
+      "taskTitle": "Build Player Movement and Input System",
+      "complexityScore": 8,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the task into: 1) Creating an InputManager for various input devices, 2) Implementing movement mechanics with acceleration/deceleration, 3) Adding input buffering for responsive controls, and 4) Supporting mobile-specific touch inputs.",
+      "reasoning": "While focused on player interaction, this task involves multi-platform input handling, responsive mechanics, and smooth control implementation."
+    },
+    {
+      "taskId": 4,
+      "taskTitle": "Develop Basic Enemy System",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Segment the task into: 1) Implementing enemy spawning logic, 2) Creating basic enemy types with AI behaviors, 3) Adding collision detection, and 4) Incorporating pathfinding and obstacle avoidance.",
+      "reasoning": "This task combines AI programming with spawning mechanics and collision handling, requiring moderate complexity."
+    },
+    {
+      "taskId": 5,
+      "taskTitle": "Implement WebSocket Multiplayer Foundation",
+      "complexityScore": 9,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the task into: 1) Setting up WebSocket server and client, 2) Developing room management and basic authentication, 3) Implementing message serialization/deserialization, 4) Designing connection state management, and 5) Adding a heartbeat system for reconnection handling.",
+      "reasoning": "Real-time multiplayer requires robust connection handling, synchronization, and fail-safe mechanisms, making it technically challenging."
+    },
+    {
+      "taskId": 6,
+      "taskTitle": "Develop State Synchronization System",
+      "complexityScore": 10,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down into: 1) Implementing client-side prediction for movements, 2) Adding server reconciliation logic, 3) Creating entity interpolation mechanisms, 4) Optimizing with delta compression, and 5) Designing an authority model for state management.",
+      "reasoning": "This task demands advanced techniques for real-time state consistency, smooth gameplay, and network optimization."
+    },
+    {
+      "taskId": 7,
+      "taskTitle": "Create Weapon and Combat System",
+      "complexityScore": 8,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Partition the task into: 1) Developing a base Weapon class, 2) Creating projectile management with object pooling, 3) Adding collision detection for damage application, and 4) Implementing attack patterns and upgrade paths.",
+      "reasoning": "The system requires balancing reusable components, physics interactions, and flexible upgrade mechanics."
+    },
+    {
+      "taskId": 8,
+      "taskTitle": "Implement Character System with Abilities",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Split into subtasks for: 1) Designing a base Character class, 2) Implementing unique character abilities, 3) Adding co-op aura mechanics, and 4) Creating a character selection user interface.",
+      "reasoning": "This task focuses on creating diverse yet balanced characters with unique gameplay mechanics."
+    },
+    {
+      "taskId": 9,
+      "taskTitle": "Develop Progression and Upgrade System",
+      "complexityScore": 8,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the task into: 1) Implementing XP collection and level-up mechanics, 2) Adding shared XP pool logic, 3) Creating upgrade selection UI, and 4) Supporting session persistence for upgrades.",
+      "reasoning": "The system involves managing progression, UI elements, and persistent game state, requiring careful design."
+    },
+    {
+      "taskId": 10,
+      "taskTitle": "Create Stage and Game Loop",
+      "complexityScore": 9,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down into: 1) Designing terrain generation with obstacles, 2) Implementing wave progression mechanics, 3) Adding timer-based wave control, 4) Developing co-op revival mechanics, and 5) Creating victory/defeat conditions with UI.",
+      "reasoning": "This task integrates various gameplay elements like terrain, waves, and cooperative mechanics, making it complex yet essential."
+    }
+  ]
+}

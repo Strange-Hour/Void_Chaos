@@ -1,0 +1,91 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ ---
+description: Guidelines for using and creating import aliases to maintain clean and consistent imports
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: true
+---
+
+# Import Alias Guidelines
+
+- **Use Existing Aliases**
+  - `@/*` for src directory imports
+  - `@engine/*` for game engine components
+  - `@components/*` for React components
+  - `@utils/*` for utility functions and helpers
+
+- **When to Create New Aliases**
+  - When a directory will be imported from multiple levels deep
+  - When a directory will be used across multiple features
+  - When imports would require more than two parent directory references (`../../`)
+  - When a new logical grouping of functionality emerges
+
+- **Alias Structure**
+  ```typescript
+  // ✅ DO: Use aliases for cleaner imports
+  import { Canvas } from '@engine/Canvas';
+  import { Button } from '@components/ui/Button';
+  import { formatDate } from '@utils/date';
+
+  // ❌ DON'T: Use relative paths with multiple parent references
+  import { Canvas } from '../../../engine/Canvas';
+  import { Button } from '../../components/ui/Button';
+  import { formatDate } from '../../../utils/date';
+  ```
+
+- **Adding New Aliases**
+  1. Add to `tsconfig.json`:
+  ```json
+  {
+    "compilerOptions": {
+      "paths": {
+        "@/*": ["./src/*"],
+        "@newfeature/*": ["./src/features/newfeature/*"]
+      }
+    }
+  }
+  ```
+  2. Use consistent naming:
+    - Feature-based: `@feature/*`
+    - Layer-based: `@ui/*`, `@data/*`
+    - Domain-based: `@auth/*`, `@admin/*`
+
+- **Alias Organization**
+  - Group related functionality under a single alias
+  - Keep alias paths shallow (max 1-2 levels deep)
+  - Use descriptive, domain-specific names
+  ```typescript
+  // ✅ DO: Group related functionality
+  "@ui/*": ["./src/components/ui/*"]
+  "@forms/*": ["./src/components/forms/*"]
+  "@hooks/*": ["./src/hooks/*"]
+
+  // ❌ DON'T: Create deep or ambiguous paths
+  "@components/ui/forms/*": ["./src/components/ui/forms/*"]
+  "@stuff/*": ["./src/misc/*"]
+  ```
+
+- **Best Practices**
+  - Always use aliases for cross-feature imports
+  - Use relative imports only for files in the same directory
+  - Keep alias list in `tsconfig.json` sorted alphabetically
+  - Document new aliases in team documentation
+  - Consider colocating related files to minimize alias count
+
+- **Current Project Aliases**
+  ```typescript
+  // Core aliases
+  "@/*"           // Base src directory
+  "@engine/*"     // Game engine components
+  "@components/*" // React components
+  "@utils/*"      // Utility functions
+  ```
+
+- **When to Update This Rule**
+  - When adding new major features
+  - When refactoring directory structure
+  - When identifying common import patterns
+  - When team agrees on new conventions

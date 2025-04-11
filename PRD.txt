@@ -1,0 +1,179 @@
+# Product Requirements Document (PRD): Void Chaos
+
+# Overview  
+Void Chaos is a browser-based, sci-fi horror survival roguelite with real-time action and up to 4-player online co-op. Players must survive waves of mutating horrors in abandoned research stations, corrupted alien megastructures, and temporal voids. The game leverages web technologies (TypeScript, React, Next.js) to deliver a seamless multiplayer experience directly in the browser.
+
+# Core Features  
+
+## Player Characters
+- **Character Selection**: Implement 5 initial unique survivors with distinct characteristics
+- **Abilities**: Each character includes:
+  - One signature weapon with basic attack patterns
+  - One passive ability affecting gameplay
+  - One co-op aura providing buffs to nearby allies
+- **Movement System**: Responsive top-down movement with keyboard/mouse and touch support
+- **Health and Revival**: HP system with co-op revival mechanics
+
+## Multiplayer Foundation
+- **Lobby System**: Create/join functionality for up to 4 players
+- **Session Management**: Basic matchmaking with room codes for private games
+- **Synchronization**: Real-time state sync of player positions, actions, and enemy behaviors
+- **Fallback**: Graceful handling of disconnections with ability to rejoin
+
+## Combat Mechanics
+- **Auto-firing Weapons**: Basic implementation of auto-triggered weapons
+- **Enemy Waves**: Progressive waves with increasing difficulty
+- **Collision System**: Accurate hit detection for projectiles and enemies
+- **Scaling**: Enemy health and spawn rates adjusted by player count
+
+## Progression System
+- **XP Collection**: Shared XP drops from defeated enemies
+- **Weapon Upgrades**: Basic evolution system with 2-3 upgrade paths per weapon
+- **Passive Items**: Collectible passive modules enhancing character abilities
+- **Session Persistence**: Progress saved within game session
+
+## Stage Design
+- **Initial Stage**: One complete stage with appropriate enemy types and obstacles
+- **Co-op Elements**: Basic co-op-focused terrain features (choke points, open areas)
+- **Time Limit**: Wave-based progression with timer mechanics
+
+# User Experience  
+
+## User Personas
+- **Solo Player**: Enjoys challenging roguelite experiences
+- **Casual Co-op Group**: Friends looking for quick, accessible multiplayer sessions
+- **Competitive Team**: Players focused on achieving high scores and efficient builds
+
+## Key User Flows
+- **Game Entry**: Homepage → Character Selection → Game Session
+- **Multiplayer Setup**: Create/Join Lobby → Invite Friends → Ready Up → Start Game
+- **In-Game Loop**: Combat → Collect XP → Level Up → Select Upgrades → Repeat
+- **Revival Flow**: Player Death → Team Revival Mechanic → Rejoin Combat
+
+## UI/UX Considerations
+- **HUD Design**: Clean, minimalistic UI showing essential information
+- **Multiplayer Indicators**: Clear visual cues for ally positions and status
+- **Feedback Systems**: Impactful visual and audio cues for combat events
+- **Mobile Responsiveness**: Adaptive controls for various device types
+
+# Technical Architecture  
+
+## System Components
+- **Rendering Engine**: Canvas-based 2D rendering system
+- **Game Logic**: Entity Component System (ECS) for game objects and behaviors
+- **Input Handler**: Unified input system supporting multiple device types
+- **Network Layer**: WebSocket implementation with state synchronization
+- **Audio Engine**: Web Audio API implementation for sound effects and music
+
+## Data Models
+- **Player Entity**: Position, rotation, health, weapons, upgrades
+- **Enemy Entity**: Type, health, behavior pattern, targeting logic
+- **Weapon System**: Damage, cooldown, projectile properties, evolution paths
+- **Game State**: Wave information, timer, active enemies, collectibles
+
+## APIs and Integrations
+- **Multiplayer Backend**: Socket.IO or similar for WebSocket communication
+- **State Management**: Zustand for client-side state
+- **Data Persistence**: IndexedDB for local save data
+- **Authentication**: Simple username/session system for multiplayer identification
+
+## Infrastructure Requirements
+- **Frontend Hosting**: Static site deployment (Vercel/Netlify)
+- **Backend Server**: Lightweight Node.js server for WebSocket communication
+- **Asset Delivery**: CDN optimization for sprites and audio
+
+# Development Roadmap  
+
+## Phase 1: Core Gameplay (MVP)
+- Single-player movement and combat mechanics
+- Basic weapon system with one evolution path
+- Enemy spawning and basic AI
+- Canvas rendering pipeline
+- UI framework
+
+## Phase 2: Multiplayer Foundation
+- WebSocket server implementation
+- Player synchronization (position, actions)
+- Enemy synchronization
+- Lobby system (create/join)
+- Basic co-op mechanics (revival)
+
+## Phase 3: Content Expansion
+- Additional characters (5 total)
+- Complete upgrade paths for all weapons
+- Multiple enemy types with distinct behaviors
+- First complete stage design
+
+## Phase 4: Progression Systems
+- XP and leveling system
+- Passive modules implementation
+- Weapon evolution UI
+- Session persistence
+
+## Phase 5: Polish and Optimization
+- Performance optimization
+- Mobile control refinement
+- Audio implementation
+- Visual effects enhancement
+
+# Logical Dependency Chain
+
+## Foundation Layer
+1. Canvas rendering system
+2. Game loop and entity management
+3. Player movement and input handling
+4. Basic enemy implementation
+
+## Networking Foundation
+1. WebSocket connection establishment
+2. Basic state synchronization
+3. Player position and action sync
+4. Enemy behavior sync
+
+## Gameplay Systems
+1. Weapon implementation
+2. XP collection and upgrades
+3. Co-op revival mechanics
+4. Wave progression
+
+## User Interface
+1. Main menu and character selection
+2. In-game HUD with player status
+3. Upgrade selection interface
+4. Multiplayer lobby UI
+
+## Content Building
+1. Character implementation
+2. Enemy variety
+3. Stage design
+4. Audio and visual effects
+
+# Risks and Mitigations  
+
+## Technical Challenges
+- **Network Latency**: Implement client-side prediction and server reconciliation
+- **Browser Performance**: Optimize rendering and limit particle effects
+- **Cross-Platform Compatibility**: Extensive testing across devices and browsers
+- **Scalability**: Design backend to handle concurrent game sessions efficiently
+
+## MVP Scoping
+- **Feature Creep Risk**: Strict adherence to MVP definition with clear acceptance criteria
+- **Complexity Management**: Start with simplified systems that can be expanded
+- **Vertical Slice Approach**: Build one complete character/stage first before expanding
+
+## Resource Constraints
+- **Asset Creation**: Use procedural generation and asset packs for initial development
+- **Testing Limitations**: Implement automated testing for core systems
+- **Development Bandwidth**: Focus on core gameplay loop before expanding features
+
+# Appendix  
+
+## Technical References
+- Canvas performance optimization techniques
+- WebSocket implementation best practices
+- Entity Component System design patterns
+
+## Inspiration Games
+- Vampire Survivors (auto-attack roguelite mechanics)
+- Risk of Rain (multiplayer progression)
+- Enter the Gungeon (bullet patterns and enemy design) 
