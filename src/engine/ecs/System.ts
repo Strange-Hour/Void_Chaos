@@ -5,7 +5,7 @@ import { Entity } from './Entity';
  * Systems process entities that have specific component combinations.
  */
 export abstract class System {
-  private entities: Set<Entity>;
+  protected entities: Set<Entity>;
   private requiredComponents: Set<string>;
 
   constructor(requiredComponents: string[]) {
@@ -14,23 +14,19 @@ export abstract class System {
   }
 
   /**
-   * Check if an entity has all required components for this system
+   * Check if an entity should be processed by this system
    */
-  private hasRequiredComponents(entity: Entity): boolean {
-    return Array.from(this.requiredComponents).every(componentType =>
-      entity.hasComponent(componentType)
-    );
+  shouldProcessEntity(entity: Entity): boolean {
+    return Array.from(this.requiredComponents).every(type => entity.hasComponent(type));
   }
 
   /**
-   * Add an entity to this system if it has all required components
+   * Add an entity to be processed by this system
    */
-  addEntity(entity: Entity): boolean {
-    if (this.hasRequiredComponents(entity)) {
+  addEntity(entity: Entity): void {
+    if (this.shouldProcessEntity(entity)) {
       this.entities.add(entity);
-      return true;
     }
-    return false;
   }
 
   /**
@@ -41,7 +37,7 @@ export abstract class System {
   }
 
   /**
-   * Get all entities currently managed by this system
+   * Get all entities being processed by this system
    */
   getEntities(): Entity[] {
     return Array.from(this.entities);
@@ -55,9 +51,8 @@ export abstract class System {
   }
 
   /**
-   * Update method to be implemented by specific system implementations
-   * This is called for systems that don't implement fixedUpdate
-   * @param deltaTime Time elapsed since last update in seconds
+   * Update this system
+   * @param deltaTime Time elapsed since last update in milliseconds
    */
   abstract update(deltaTime: number): void;
 

@@ -2,6 +2,7 @@
   "name": "void_chaos",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,11 +13,13 @@
     "test:coverage": "jest --coverage",
     "list": "node scripts/dev.js list",
     "generate": "node scripts/dev.js generate",
-    "parse-prd": "node scripts/dev.js parse-prd"
+    "parse-prd": "node scripts/dev.js parse-prd",
+    "generate-sprites": "node scripts/generate-sprites.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "boxen": "^7.1.1",
+    "canvas": "^2.11.2",
     "chalk": "^5.3.0",
     "cli-table3": "^0.6.3",
     "commander": "^11.1.0",
@@ -45,6 +48,5 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"
-  },
-  "type": "module"
+  }
 }

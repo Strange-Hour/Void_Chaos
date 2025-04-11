@@ -8,13 +8,41 @@ This directory implements a robust Entity Component System, a design pattern com
 
 - `Entity.ts`: Entity class and management
 - `System.ts`: System base class and processing
+- `World.ts`: Core world management and entity-system coordination
 - `Serialization.ts`: State serialization and deserialization
 
 ### Subdirectories
 
 - `/components`: Component definitions and implementations
+- `/systems`: System implementations
+- `/factories`: Entity factory implementations
 
 ## ECS Architecture
+
+### World Management (`World.ts`)
+
+The World class is the central manager of the ECS architecture:
+
+- Entity lifecycle management (creation, updates, deletion)
+- System registration and execution
+- Game state coordination
+- Entity-component queries
+- State serialization
+
+```typescript
+// Creating and using a world
+const world = new World();
+
+// Adding entities and systems
+world.addEntity(player);
+world.addSystem(new MovementSystem());
+
+// Updating the world (typically in game loop)
+world.update();
+
+// Querying entities
+const enemies = world.getEntitiesWith("enemy", "health");
+```
 
 ### Entity System (`Entity.ts`)
 
@@ -51,6 +79,28 @@ Components are data containers that define entity properties:
 - Custom game-specific components
 
 ## Implementation Details
+
+### World Implementation
+
+```typescript
+class World {
+  // Entity management
+  addEntity(entity: Entity): void;
+  removeEntity(entity: Entity): void;
+  getEntities(): Entity[];
+  getEntitiesWith(...componentTypes: string[]): Entity[];
+
+  // System management
+  addSystem(system: System): void;
+  removeSystem(system: System): void;
+  update(): void;
+
+  // State management
+  clear(): void;
+  serialize(): object;
+  deserialize(data: object): void;
+}
+```
 
 ### Entity Implementation
 
@@ -138,6 +188,18 @@ class MovementSystem extends System {
     }
   }
 }
+
+// World setup and usage
+const world = new World();
+world.addEntity(player);
+world.addSystem(new MovementSystem());
+world.addSystem(new RenderSystem());
+
+// Game loop
+function gameLoop() {
+  world.update();
+  requestAnimationFrame(gameLoop);
+}
 ```
 
 ## Testing
@@ -147,8 +209,24 @@ Each core component has corresponding test files that verify:
 - Entity management
 - System processing
 - Component operations
+- World state management
 - Serialization
 - Edge cases and error handling
+
+## Updates and Changes
+
+### [2024-03-19] - Task #3.4
+
+- Added World class implementation
+- Added comprehensive World tests
+- Implemented entity-system coordination
+- Added serialization support
+- Features added:
+  - Entity lifecycle management
+  - System registration and execution
+  - Entity queries with component filtering
+  - State serialization and deserialization
+  - Performance optimizations
 
 ## Components
 
@@ -220,21 +298,6 @@ Manages character movement and physics integration.
 - Processes input from keyboard, mouse, and touch
 - Updates entity transforms based on physics state
 - Handles entity cleanup and disposal
-
-## Updates and Changes
-
-### [2024-03-19] - Task #3.4
-
-- Added CharacterController component
-- Added CharacterControllerSystem
-- Implemented physics-based movement
-- Added comprehensive test coverage
-- Features added:
-  - Smooth acceleration/deceleration
-  - Configurable movement parameters
-  - Input-driven movement and aiming
-  - Physics integration
-  - Transform updates
 
 ## Best Practices
 

@@ -4,11 +4,11 @@
  */
 export class Entity {
   private static nextId = 0;
-  private readonly id: number;
+  private id: number;
   private components: Map<string, Component>;
 
-  constructor(id?: number) {
-    this.id = id ?? Entity.nextId++;
+  constructor() {
+    this.id = Entity.nextId++;
     this.components = new Map();
   }
 
@@ -40,8 +40,8 @@ export class Entity {
    * @param type The type of component to get
    * @returns The component if it exists, undefined otherwise
    */
-  getComponent<T extends Component>(type: string): T | undefined {
-    return this.components.get(type) as T;
+  getComponent(type: string): Component | undefined {
+    return this.components.get(type);
   }
 
   /**
@@ -55,8 +55,66 @@ export class Entity {
   /**
    * Get all components attached to this entity
    */
-  getAllComponents(): Component[] {
+  getComponents(): Component[] {
     return Array.from(this.components.values());
+  }
+
+  /**
+   * Clean up this entity and its components
+   */
+  dispose(): void {
+    this.components.clear();
+  }
+
+  /**
+   * Create a serializable representation of this entity
+   */
+  serialize(): object {
+    const componentData: { [key: string]: object } = {};
+    this.components.forEach((component, type) => {
+      componentData[type] = component.serialize();
+    });
+    return {
+      id: this.id,
+      components: componentData
+    };
+  }
+
+  /**
+   * Restore entity state from serialized data
+   */
+  deserialize(data: { id: number; components: { [key: string]: object } }): void {
+    this.id = data.id;
+    this.components.clear();
+
+    // Update next ID if necessary to maintain uniqueness
+    if (data.id >= Entity.nextId) {
+      Entity.nextId = data.id + 1;
+    }
+
+    // Restore components (requires component factories or registry)
+    // This is a simplified version - in practice, you'd need a way to
+    // create the appropriate component types from the serialized data
+    Object.entries(data.components).forEach(([type, componentData]) => {
+      const component = this.createComponent(type);
+      if (component) {
+        component.deserialize(componentData);
+        this.addComponent(component);
+      }
+    });
+  }
+
+  /**
+   * Create a component of the specified type
+   * This is a placeholder - in practice, you'd have a component registry
+   * or factory system to create the appropriate component types
+   * @param _type The type of component to create (unused in base implementation)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private createComponent(_type: string): Component | undefined {
+    // This would be implemented by game-specific code
+    // to create the appropriate component types
+    return undefined;
   }
 }
 

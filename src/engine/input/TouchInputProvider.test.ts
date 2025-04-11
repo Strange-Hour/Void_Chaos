@@ -62,8 +62,10 @@ describe('TouchInputProvider', () => {
       provider.update(16);
 
       const axis = provider.getAxis(InputAction.Move);
-      expect(axis.value.x).toBe(0);
-      expect(axis.value.y).toBe(0);
+      expect(axis.value).toEqual({ x: 0, y: 0 });
+      expect(axis.normalized).toEqual({ x: 0, y: 0 });
+      expect(axis.magnitude).toBe(0);
+      expect(axis.active).toBe(false);
     });
 
     it('should track joystick movement', () => {
@@ -113,6 +115,7 @@ describe('TouchInputProvider', () => {
       const axis = provider.getAxis(InputAction.Move);
       expect(axis.normalized.x).toBeGreaterThan(0);
       expect(axis.magnitude).toBeLessThanOrEqual(1);
+      expect(axis.active).toBe(true);
     });
 
     it('should reset movement on touch end', () => {
@@ -146,8 +149,10 @@ describe('TouchInputProvider', () => {
       provider.update(16);
 
       const axis = provider.getAxis(InputAction.Move);
-      expect(axis.value.x).toBe(0);
-      expect(axis.value.y).toBe(0);
+      expect(axis.value).toEqual({ x: 0, y: 0 });
+      expect(axis.normalized).toEqual({ x: 0, y: 0 });
+      expect(axis.magnitude).toBe(0);
+      expect(axis.active).toBe(false);
     });
   });
 
@@ -175,7 +180,8 @@ describe('TouchInputProvider', () => {
       provider.update(16);
 
       const axis = provider.getAxis(InputAction.Aim);
-      expect(axis.magnitude).toBe(0); // Initial touch at center
+      expect(axis.magnitude).toBe(0);
+      expect(axis.active).toBe(false);
     });
 
     it('should track aim joystick movement', () => {
@@ -226,6 +232,7 @@ describe('TouchInputProvider', () => {
       expect(axis.normalized.x).toBeGreaterThan(0);
       expect(axis.normalized.y).toBeGreaterThan(0);
       expect(axis.magnitude).toBeLessThanOrEqual(1);
+      expect(axis.active).toBe(true);
     });
   });
 

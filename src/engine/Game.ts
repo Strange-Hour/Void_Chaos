@@ -46,6 +46,13 @@ export class Game {
   }
 
   /**
+   * Get the canvas instance
+   */
+  getCanvas(): Canvas {
+    return this.canvas;
+  }
+
+  /**
    * Add an entity to the game
    */
   addEntity(entity: Entity): void {

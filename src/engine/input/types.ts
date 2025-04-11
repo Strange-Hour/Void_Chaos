@@ -14,6 +14,7 @@ export interface InputAxis {
   value: Vector2;
   normalized: Vector2;
   magnitude: number;
+  active: boolean;  // Whether the axis is currently being used
 }
 
 /**

@@ -239,3 +239,159 @@ Some components have natural dependencies or relationships:
    - Verify state changes
    - Test integration with other components
    - Test edge cases and error conditions
+
+## Enemy System Components
+
+### Enemy Component (`Enemy.ts`)
+
+The Enemy component defines enemy-specific properties and behavior configuration.
+
+#### Enemy Types
+
+```typescript
+enum EnemyType {
+  Basic = "basic", // Simple chase behavior
+  Flanker = "flanker", // Tries to flank the player
+  Ranged = "ranged", // Keeps distance and shoots
+}
+```
+
+#### Configuration
+
+Each enemy type has specific configuration values:
+
+| Type    | Speed | Health | Damage | Detection Range | Attack Range | Score |
+| ------- | ----- | ------ | ------ | --------------- | ------------ | ----- |
+| Basic   | 150   | 100    | 20     | 400             | 50           | 100   |
+| Flanker | 200   | 75     | 15     | 500             | 40           | 150   |
+| Ranged  | 100   | 50     | 10     | 600             | 400          | 200   |
+
+#### Features
+
+- Type-specific configurations
+- Health and damage management
+- Attack cooldown system
+- Score values for each enemy type
+- Serialization support
+
+#### Usage Example
+
+```typescript
+// Create a basic enemy
+const enemy = new Enemy(EnemyType.Basic);
+
+// Check health and status
+const health = enemy.getCurrentHealth();
+const isAlive = enemy.isAlive();
+
+// Handle combat
+const currentTime = performance.now();
+if (enemy.canAttack(currentTime)) {
+  const damage = enemy.attack(currentTime);
+}
+
+// Take damage
+enemy.takeDamage(20);
+```
+
+### Updates and Changes
+
+### [2024-03-XX] - Task #4.1
+
+- Added Enemy component with three enemy types
+- Implemented health and damage system
+- Added attack cooldown mechanics
+- Added score values for different enemy types
+- Added serialization support
+- Created comprehensive test coverage
+
+## Factory System
+
+### EnemyFactory (`factories/EnemyFactory.ts`)
+
+The EnemyFactory creates fully configured enemy entities with all required components.
+
+#### Features
+
+- Creates enemy entities with all necessary components
+- Configures type-specific behaviors and stats
+- Sets up AI behaviors based on enemy type
+- Handles spawn positioning and targeting
+- Manages component composition
+
+#### Components Added to Enemies
+
+- Enemy: Core enemy properties and behavior
+- Transform: Position and movement
+- Health: Health management
+- Collider: Collision detection
+- AI: Enemy behavior and decision making
+
+#### Usage Example
+
+```typescript
+// Create a basic enemy at position
+const enemy = EnemyFactory.createEnemy({
+  position: { x: 100, y: 200 },
+  type: EnemyType.Basic,
+});
+
+// Create a ranged enemy with target
+const rangedEnemy = EnemyFactory.createEnemy({
+  position: { x: 300, y: 400 },
+  type: EnemyType.Ranged,
+  aiTarget: {
+    x: 500,
+    y: 500,
+    type: "player",
+  },
+});
+```
+
+## Integration with Other Components
+
+### AI Integration
+
+- Uses the AI component for behavior management
+- Different behaviors per enemy type:
+  - Basic: Chase behavior
+  - Flanker: Flanking behavior
+  - Ranged: Keep distance and attack behaviors
+- All enemies have an idle behavior state
+
+### Health Integration
+
+- Uses the Health component for damage and healing
+- Type-specific max health values
+- Supports regeneration (if configured)
+
+### Collider Integration
+
+- Uses the Collider component for hit detection
+- Centered collision boxes (32x32 default)
+- Non-trigger colliders for physical interaction
+
+### Transform Integration
+
+- Uses Transform component for positioning
+- Supports movement and rotation
+- Maintains spawn position configuration
+
+## Testing
+
+All components and factories have comprehensive test coverage:
+
+- Enemy component tests (`Enemy.test.ts`)
+
+  - Initialization and configuration
+  - Health management
+  - Attack system
+  - Scoring system
+  - Serialization
+
+- EnemyFactory tests (`EnemyFactory.test.ts`)
+  - Component composition
+  - Type-specific configurations
+  - AI behavior setup
+  - Target configuration
+  - Position handling

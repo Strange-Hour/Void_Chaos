@@ -8,15 +8,30 @@ export type KeyState = {
 
 export type MouseButton = 'left' | 'middle' | 'right';
 
+export type TouchZone = 'movement' | 'aim' | 'action';
+
+export interface TouchState {
+  active: boolean;
+  position: Vector2;
+  startPosition: Vector2;
+  identifier: number;
+  zone: TouchZone;
+}
+
 export interface InputState {
   keys: Map<string, KeyState>;
   mousePosition: Vector2;
   mouseButtons: Map<MouseButton, KeyState>;
   mouseWheel: number;
+  touches: Map<number, TouchState>;
+  virtualJoysticks: {
+    movement: Vector2;
+    aim: Vector2;
+  };
 }
 
 /**
- * Input component for handling keyboard and mouse input
+ * Input component for handling keyboard, mouse, and touch input
  */
 export class Input extends Component {
   private state: InputState;
@@ -28,7 +43,12 @@ export class Input extends Component {
       keys: new Map(),
       mousePosition: { x: 0, y: 0 },
       mouseButtons: new Map(),
-      mouseWheel: 0
+      mouseWheel: 0,
+      touches: new Map(),
+      virtualJoysticks: {
+        movement: { x: 0, y: 0 },
+        aim: { x: 0, y: 0 }
+      }
     };
     this.bindings = new Map();
   }
@@ -163,10 +183,65 @@ export class Input extends Component {
   }
 
   /**
+   * Update touch state
+   */
+  setTouchState(identifier: number, state: Partial<TouchState>): void {
+    const currentState = this.state.touches.get(identifier);
+    if (!currentState && state.position) {
+      // New touch
+      this.state.touches.set(identifier, {
+        active: true,
+        position: { ...state.position },
+        startPosition: { ...state.position },
+        identifier,
+        zone: state.zone || 'action'
+      });
+    } else if (currentState && state.position) {
+      // Update existing touch
+      this.state.touches.set(identifier, {
+        ...currentState,
+        ...state,
+        position: { ...state.position }
+      });
+    } else if (currentState && state.active === false) {
+      // Remove touch
+      this.state.touches.delete(identifier);
+    }
+  }
+
+  /**
+   * Get all active touches
+   */
+  getActiveTouches(): TouchState[] {
+    return Array.from(this.state.touches.values());
+  }
+
+  /**
+   * Get touches in a specific zone
+   */
+  getTouchesInZone(zone: TouchZone): TouchState[] {
+    return this.getActiveTouches().filter(touch => touch.zone === zone);
+  }
+
+  /**
+   * Set virtual joystick value
+   */
+  setVirtualJoystick(type: 'movement' | 'aim', value: Vector2): void {
+    this.state.virtualJoysticks[type] = { ...value };
+  }
+
+  /**
+   * Get virtual joystick value
+   */
+  getVirtualJoystick(type: 'movement' | 'aim'): Vector2 {
+    return { ...this.state.virtualJoysticks[type] };
+  }
+
+  /**
    * Update input states for the next frame
    */
   update(): void {
-    // Update wasPressed states
+    // Update wasPressed states for keys and mouse buttons
     Array.from(this.state.keys.entries()).forEach(([key, state]) => {
       this.state.keys.set(key, {
         isPressed: state.isPressed,

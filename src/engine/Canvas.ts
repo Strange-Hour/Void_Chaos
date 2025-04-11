@@ -325,4 +325,18 @@ export class Canvas {
     // Clear sprite cache
     this.spriteManager.clearUnused([]);
   }
+
+  /**
+   * Get the canvas width
+   */
+  public getWidth(): number {
+    return this.width;
+  }
+
+  /**
+   * Get the canvas height
+   */
+  public getHeight(): number {
+    return this.height;
+  }
 } 
