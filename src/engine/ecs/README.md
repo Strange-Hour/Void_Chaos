@@ -149,3 +149,141 @@ Each core component has corresponding test files that verify:
 - Component operations
 - Serialization
 - Edge cases and error handling
+
+## Components
+
+### Transform
+
+Handles entity position, rotation, and scale in 2D space.
+
+### Collider
+
+Manages collision detection and physics interactions.
+
+### CharacterController
+
+Provides physics-based character movement with input handling.
+
+#### Features
+
+- Smooth acceleration and deceleration
+- Configurable movement parameters
+- Friction and momentum
+- Maximum speed limits
+- Independent movement and aim directions
+- Rotation interpolation
+
+#### Usage Example
+
+```typescript
+import { Entity } from "../Entity";
+import { Transform } from "./components/Transform";
+import { CharacterController } from "./components/CharacterController";
+import { CharacterControllerSystem } from "./systems/CharacterControllerSystem";
+
+// Create player entity
+const player = new Entity();
+player.addComponent(new Transform());
+player.addComponent(
+  new CharacterController({
+    maxSpeed: 300,
+    acceleration: 1000,
+    deceleration: 800,
+    rotationSpeed: 5,
+    mass: 1,
+    friction: 0.1,
+  })
+);
+
+// Add to character controller system
+const characterSystem = new CharacterControllerSystem(inputManager);
+characterSystem.addEntity(player);
+```
+
+## Systems
+
+### CharacterControllerSystem
+
+Manages character movement and physics integration.
+
+#### Features
+
+- Input processing for movement and aiming
+- Physics-based movement updates
+- Smooth rotation interpolation
+- Multi-entity support
+- Fixed timestep updates
+
+#### Implementation Details
+
+- Uses fixed timestep for consistent physics
+- Processes input from keyboard, mouse, and touch
+- Updates entity transforms based on physics state
+- Handles entity cleanup and disposal
+
+## Updates and Changes
+
+### [2024-03-19] - Task #3.4
+
+- Added CharacterController component
+- Added CharacterControllerSystem
+- Implemented physics-based movement
+- Added comprehensive test coverage
+- Features added:
+  - Smooth acceleration/deceleration
+  - Configurable movement parameters
+  - Input-driven movement and aiming
+  - Physics integration
+  - Transform updates
+
+## Best Practices
+
+1. Component Usage
+
+   - Keep components focused and single-purpose
+   - Use appropriate data types for properties
+   - Implement proper cleanup in dispose methods
+   - Follow serialization patterns for save/load
+
+2. System Implementation
+
+   - Use fixed timestep for physics
+   - Handle component dependencies properly
+   - Clean up resources on disposal
+   - Use appropriate update methods
+
+3. Entity Management
+   - Add required components before system registration
+   - Remove entities from systems before disposal
+   - Use appropriate component queries
+   - Handle missing components gracefully
+
+## Dependencies
+
+- Core ECS types from `Entity.ts` and `System.ts`
+- Input system for movement control
+- Math utilities for vector operations
+- Transform component for position/rotation
+- Game loop with fixed timestep support
+
+## Performance Considerations
+
+1. Physics Updates
+
+   - Use fixed timestep for consistent simulation
+   - Optimize vector calculations
+   - Minimize object creation in update loops
+   - Use efficient data structures
+
+2. Input Processing
+
+   - Process input events efficiently
+   - Use normalized vectors for consistent behavior
+   - Cache frequently accessed values
+   - Handle multiple input methods smoothly
+
+3. Memory Management
+   - Properly dispose of entities and components
+   - Clear references in cleanup methods
+   - Use object pooling when appropriate
+   - Minimize garbage collection impact
