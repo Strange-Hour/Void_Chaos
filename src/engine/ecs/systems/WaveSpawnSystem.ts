@@ -16,9 +16,10 @@ export interface WaveConfig {
   difficultyMultiplier?: number; // Optional difficulty multiplier for this wave
 }
 
-export interface SpawnPoint {
-  position: Vector2;
-  weight: number;      // Probability weight for this spawn point
+export interface Boundary {
+  width: number;
+  height: number;
+  padding?: number; // Optional padding from the edges
 }
 
 export interface DifficultyConfig {
@@ -34,31 +35,29 @@ export interface DifficultyConfig {
  */
 export class WaveSpawnSystem extends System {
   private waves: WaveConfig[];
-  private spawnPoints: SpawnPoint[];
   private currentWave: number;
   private enemiesRemaining: { type: EnemyType; count: number }[];
   private lastSpawnTime: number;
   private waveStartTime: number;
   private isWaveActive: boolean;
-  private totalWeight: number;
   protected world: World;
   private difficultyConfig: DifficultyConfig;
   private currentDifficultyMultiplier: number;
   private spawnPattern: 'random' | 'sequential' | 'synchronized' = 'random';
-  private currentSpawnIndex: number = 0;
+  private currentSpawnSide: 'top' | 'right' | 'bottom' | 'left' = 'top';
+  private boundary: Boundary;
 
   constructor(world: World) {
     super(['transform']);
     this.world = world;
     this.waves = [];
-    this.spawnPoints = [];
     this.currentWave = 0;
     this.enemiesRemaining = [];
     this.lastSpawnTime = 0;
     this.waveStartTime = 0;
     this.isWaveActive = false;
-    this.totalWeight = 0;
     this.currentDifficultyMultiplier = 1;
+    this.boundary = { width: 800, height: 600, padding: 50 };
     this.difficultyConfig = {
       baseHealth: 1,
       baseDamage: 1,
@@ -69,12 +68,11 @@ export class WaveSpawnSystem extends System {
   }
 
   /**
-   * Configure the wave spawning system with wave definitions and spawn points
+   * Configure the wave spawning system with wave definitions and boundary
    */
-  configure(waves: WaveConfig[], spawnPoints: SpawnPoint[], difficultyConfig?: Partial<DifficultyConfig>): void {
+  configure(waves: WaveConfig[], boundary: Boundary, difficultyConfig?: Partial<DifficultyConfig>): void {
     this.waves = waves;
-    this.spawnPoints = spawnPoints;
-    this.totalWeight = spawnPoints.reduce((sum, point) => sum + point.weight, 0);
+    this.boundary = { ...boundary, padding: boundary.padding ?? 50 };
     if (difficultyConfig) {
       this.difficultyConfig = { ...this.difficultyConfig, ...difficultyConfig };
     }
@@ -86,7 +84,7 @@ export class WaveSpawnSystem extends System {
    */
   setSpawnPattern(pattern: 'random' | 'sequential' | 'synchronized'): void {
     this.spawnPattern = pattern;
-    this.currentSpawnIndex = 0;
+    this.currentSpawnSide = 'top';
   }
 
   /**
@@ -99,7 +97,7 @@ export class WaveSpawnSystem extends System {
     this.waveStartTime = 0;
     this.isWaveActive = false;
     this.currentDifficultyMultiplier = 1;
-    this.currentSpawnIndex = 0;
+    this.currentSpawnSide = 'top';
   }
 
   /**
@@ -130,21 +128,63 @@ export class WaveSpawnSystem extends System {
   }
 
   /**
+   * Get a random position along the specified boundary side
+   */
+  private getRandomBoundaryPosition(side?: 'top' | 'right' | 'bottom' | 'left'): Vector2 {
+    const { width, height, padding } = this.boundary;
+    const p = padding!;
+
+    // If no side specified, choose one randomly
+    if (!side) {
+      const sides: ('top' | 'right' | 'bottom' | 'left')[] = ['top', 'right', 'bottom', 'left'];
+      side = sides[Math.floor(Math.random() * sides.length)];
+    }
+
+    switch (side) {
+      case 'top':
+        return {
+          x: p + Math.random() * (width - 2 * p),
+          y: p
+        };
+      case 'right':
+        return {
+          x: width - p,
+          y: p + Math.random() * (height - 2 * p)
+        };
+      case 'bottom':
+        return {
+          x: p + Math.random() * (width - 2 * p),
+          y: height - p
+        };
+      case 'left':
+        return {
+          x: p,
+          y: p + Math.random() * (height - 2 * p)
+        };
+    }
+  }
+
+  /**
    * Get spawn position based on current pattern
    */
   private getSpawnPosition(): Vector2 {
     switch (this.spawnPattern) {
       case 'sequential':
-        const point = this.spawnPoints[this.currentSpawnIndex];
-        this.currentSpawnIndex = (this.currentSpawnIndex + 1) % this.spawnPoints.length;
-        return point.position;
+        // Rotate through sides sequentially
+        const position = this.getRandomBoundaryPosition(this.currentSpawnSide);
+        const sides: ('top' | 'right' | 'bottom' | 'left')[] = ['top', 'right', 'bottom', 'left'];
+        const currentIndex = sides.indexOf(this.currentSpawnSide);
+        this.currentSpawnSide = sides[(currentIndex + 1) % sides.length];
+        return position;
 
       case 'synchronized':
-        return this.spawnPoints[this.currentSpawnIndex].position;
+        // Spawn at evenly distributed points along all sides
+        return this.getRandomBoundaryPosition(this.currentSpawnSide);
 
       case 'random':
       default:
-        return this.getRandomSpawnPoint();
+        // Completely random boundary position
+        return this.getRandomBoundaryPosition();
     }
   }
 
@@ -165,26 +205,7 @@ export class WaveSpawnSystem extends System {
     // Calculate new difficulty multiplier for this wave
     this.currentDifficultyMultiplier = this.calculateDifficultyMultiplier();
 
-    // Reset spawn pattern index for synchronized spawning
-    if (this.spawnPattern === 'synchronized') {
-      this.currentSpawnIndex = 0;
-    }
-
     return true;
-  }
-
-  /**
-   * Get a random spawn point based on weight distribution
-   */
-  private getRandomSpawnPoint(): Vector2 {
-    let random = Math.random() * this.totalWeight;
-    for (const point of this.spawnPoints) {
-      random -= point.weight;
-      if (random <= 0) {
-        return point.position;
-      }
-    }
-    return this.spawnPoints[0].position; // Fallback
   }
 
   /**
@@ -215,28 +236,13 @@ export class WaveSpawnSystem extends System {
     // Check if it's time to spawn new enemies
     const wave = this.waves[this.currentWave];
     if (elapsedTime >= wave.spawnDelay) {
-      // For synchronized spawning, spawn one enemy at each spawn point
-      if (this.spawnPattern === 'synchronized') {
-        const enemyGroup = this.enemiesRemaining.find(group => group.count > 0);
-        if (enemyGroup && this.currentSpawnIndex < this.spawnPoints.length) {
-          this.spawnEnemy(enemyGroup.type, this.spawnPoints[this.currentSpawnIndex].position);
-          enemyGroup.count--;
-          this.currentSpawnIndex++;
+      const enemyGroup = this.enemiesRemaining.find(group => group.count > 0);
+      if (enemyGroup) {
+        this.spawnEnemy(enemyGroup.type, this.getSpawnPosition());
+        enemyGroup.count--;
 
-          // Reset index after using all spawn points
-          if (this.currentSpawnIndex >= this.spawnPoints.length) {
-            this.currentSpawnIndex = 0;
-            this.lastSpawnTime = currentTime;
-          }
-        }
-      } else {
-        // Regular spawning (random or sequential)
-        const enemyGroup = this.enemiesRemaining.find(group => group.count > 0);
-        if (enemyGroup) {
-          this.spawnEnemy(enemyGroup.type, this.getSpawnPosition());
-          enemyGroup.count--;
-          this.lastSpawnTime = currentTime;
-        }
+        // Add a small random variation to spawn timing based on deltaTime
+        this.lastSpawnTime = currentTime + (Math.random() - 0.5) * deltaTime;
       }
 
       // Check if wave is complete

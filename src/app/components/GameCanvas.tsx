@@ -5,7 +5,6 @@ import { Game } from "@engine/Game";
 import {
   WaveSpawnSystem,
   WaveConfig,
-  SpawnPoint,
 } from "@engine/ecs/systems/WaveSpawnSystem";
 import { Entity } from "@engine/ecs/Entity";
 import { Transform } from "@engine/ecs/components/Transform";
@@ -116,21 +115,16 @@ export default function GameCanvas() {
       },
     ];
 
-    // Define spawn points around the edges of the screen
-    const spawnPoints: SpawnPoint[] = [
-      { position: { x: 50, y: 50 }, weight: 1 }, // Top-left
-      { position: { x: 750, y: 50 }, weight: 1 }, // Top-right
-      { position: { x: 50, y: 550 }, weight: 1 }, // Bottom-left
-      { position: { x: 750, y: 550 }, weight: 1 }, // Bottom-right
-      { position: { x: 400, y: 50 }, weight: 1.5 }, // Top-middle (higher weight)
-      { position: { x: 400, y: 550 }, weight: 1.5 }, // Bottom-middle (higher weight)
-      { position: { x: 50, y: 300 }, weight: 1 }, // Left-middle
-      { position: { x: 750, y: 300 }, weight: 1 }, // Right-middle
-    ];
+    // Define game boundary with padding from edges
+    const boundary = {
+      width: 800,
+      height: 600,
+      padding: 50, // 50px padding from edges
+    };
 
     // Create and configure wave spawn system with difficulty settings
     const waveSpawnSystem = new WaveSpawnSystem(world);
-    waveSpawnSystem.configure(waveConfig, spawnPoints, {
+    waveSpawnSystem.configure(waveConfig, boundary, {
       baseHealth: 1,
       baseDamage: 1,
       baseSpeed: 1,
