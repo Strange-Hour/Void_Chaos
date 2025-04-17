@@ -69,6 +69,10 @@ export class Canvas {
     this.containerElement.style.width = `${this.width}px`;
     this.containerElement.style.height = `${this.height}px`;
     this.containerElement.style.backgroundColor = this.backgroundColor;
+    this.containerElement.style.overflow = 'hidden'; // Ensure content doesn't overflow
+
+    // Debug style to make sure container is visible
+    this.containerElement.style.border = '2px solid red';
 
     // Setup container
     if (config.containerId) {
@@ -140,7 +144,9 @@ export class Canvas {
    * The main render loop
    */
   private renderLoop(currentTime: number = performance.now()): void {
-    if (!this.isRunning) return;
+    if (!this.isRunning) {
+      return;
+    }
 
     // Calculate frame timing
     const deltaTime = currentTime - this.lastFrameTime;
@@ -163,11 +169,14 @@ export class Canvas {
       this.renderStats.lastFpsUpdate = currentTime;
     }
 
-    // Clear all layers
-    this.clear();
-
     // Execute render callbacks
-    Array.from(this.renderCallbacks).forEach(callback => callback(deltaTime));
+    Array.from(this.renderCallbacks).forEach(callback => {
+      try {
+        callback(deltaTime);
+      } catch (error) {
+        console.error('Error in render callback:', error);
+      }
+    });
 
     // Request next frame
     this.animationFrameId = requestAnimationFrame(this.renderLoop);
@@ -338,5 +347,131 @@ export class Canvas {
    */
   public getHeight(): number {
     return this.height;
+  }
+
+  /**
+   * Draw debug rectangle for diagnostics
+   */
+  public drawDebugRect(): void {
+    // Get the background layer for debug drawing
+    const layer = this.getLayer('background');
+    if (!layer) {
+      console.error('Cannot draw debug rect: background layer not found');
+      return;
+    }
+
+    const ctx = layer.getContext();
+
+    // Draw framed debug rectangle
+    ctx.save();
+
+    // Draw background
+    ctx.fillStyle = '#ff00ff';
+    ctx.fillRect(200, 150, 150, 150);
+
+    // Draw frame
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(200, 150, 150, 150);
+
+    // Draw text
+    ctx.fillStyle = 'white';
+    ctx.font = '20px Arial';
+    ctx.fillText('Debug Rectangle', 210, 220);
+
+    // Draw FPS counter
+    ctx.fillText(`Frame: ${this.renderStats.frameCount}`, 210, 250);
+    ctx.fillText(`FPS: ${this.renderStats.fps}`, 210, 270);
+
+    ctx.restore();
+
+    // Test SVG rendering directly
+    this.testSvgRendering();
+  }
+
+  /**
+   * Test SVG rendering directly on canvas
+   */
+  private testSvgRendering(): void {
+    // First, create all SVG elements in memory to ensure they're loaded
+    const svgElements: HTMLImageElement[] = [];
+    const svgUrls = [
+      '/sprites/player.svg',
+      '/sprites/enemy-basic.svg',
+      '/sprites/enemy-flanker.svg',
+      '/sprites/enemy-ranged.svg'
+    ];
+
+    // Create and load all images
+    svgUrls.forEach(url => {
+      const img = new Image();
+      img.src = url;
+      svgElements.push(img);
+    });
+
+    // Get the background layer for debug drawing
+    const layer = this.getLayer('background');
+    if (!layer) {
+      return;
+    }
+
+    const ctx = layer.getContext();
+
+    // Wait for images to load and draw them
+    svgElements.forEach((img, index) => {
+      img.onload = () => {
+        // Position of the SVG
+        const x = 50 + index * 60;
+        const y = 400;
+
+        // Draw background
+        ctx.fillStyle = 'rgba(50, 50, 50, 0.5)';
+        ctx.fillRect(x - 2, y - 2, 36, 36);
+
+        // Draw the image
+        ctx.drawImage(img, x, y, 32, 32);
+
+        // Draw border
+        ctx.strokeStyle = 'lime';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, 32, 32);
+
+        // Draw label
+        ctx.fillStyle = 'white';
+        ctx.font = '10px Arial';
+        const label = img.src.split('/').pop()?.split('.')[0] || 'sprite';
+        ctx.fillText(label, x, y + 45);
+      };
+
+      img.onerror = () => {
+        // Draw error indicator
+        const x = 50 + index * 60;
+        const y = 400;
+
+        ctx.fillStyle = 'red';
+        ctx.fillRect(x, y, 32, 32);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '16px Arial';
+        ctx.fillText('X', x + 12, y + 20);
+      };
+    });
+  }
+
+  /**
+   * Force an immediate redraw of all layers
+   * This can be called to ensure visual updates happen even outside the normal render loop
+   */
+  public forceRedraw(): void {
+    // Execute render callbacks immediately to force updates
+    Array.from(this.renderCallbacks).forEach(callback => {
+      try {
+        callback(16.67); // ~60fps equivalent time step
+      } catch (error) {
+        console.error('Error in render callback during force redraw:', error);
+      }
+    });
+
+    console.log('Force redraw triggered for all layers');
   }
 } 

@@ -14,6 +14,10 @@ export class World {
   private entitiesToAdd: Entity[];
   private entitiesToRemove: Entity[];
   private lastUpdateTime: number;
+  private lastFixedUpdateTime: number = 0;
+  private readonly fixedTimeStep: number = 1 / 60; // 60 Hz fixed update rate
+  private lastLoggedEntityCount: number = 0;
+  private lastLoggedSystemCount: number = 0;
 
   constructor() {
     this.entities = new Set();
@@ -71,6 +75,13 @@ export class World {
   }
 
   /**
+   * Get all systems in the world
+   */
+  getSystems(): System[] {
+    return [...this.systems];
+  }
+
+  /**
    * Clear all entities and systems from the world
    */
   clear(): void {
@@ -87,11 +98,16 @@ export class World {
   /**
    * Process entity additions and removals
    */
-  private processEntityChanges(): void {
+  processEntityChanges(): void {
     // Add new entities
+    if (this.entitiesToAdd.length > 1) {
+      console.log('World: Processing multiple entities', {
+        count: this.entitiesToAdd.length
+      });
+    }
+
     for (const entity of this.entitiesToAdd) {
       this.entities.add(entity);
-      // Notify systems of new entity
       for (const system of this.systems) {
         if (system.shouldProcessEntity(entity)) {
           system.addEntity(entity);
@@ -101,9 +117,14 @@ export class World {
     this.entitiesToAdd = [];
 
     // Remove entities
+    if (this.entitiesToRemove.length > 1) {
+      console.log('World: Removing multiple entities', {
+        count: this.entitiesToRemove.length
+      });
+    }
+
     for (const entity of this.entitiesToRemove) {
       this.entities.delete(entity);
-      // Clean up entity
       entity.dispose();
     }
     this.entitiesToRemove = [];
@@ -122,7 +143,58 @@ export class World {
 
     // Update all systems
     for (const system of this.systems) {
-      system.update(dt);
+      // Give higher priority to AI and Debug systems by ensuring they always update
+      // with the most current state, even when delta time is small
+      if (system.constructor.name === 'AIBehaviorSystem' ||
+        system.constructor.name === 'DebugSystem') {
+        // Force these systems to update with at least a minimum time step
+        system.update(Math.max(dt, 16)); // Ensure at least ~60fps equivalent
+      } else {
+        system.update(dt);
+      }
+    }
+  }
+
+  /**
+   * Fixed update method for physics and game logic
+   * @param deltaTime Fixed time step in seconds
+   */
+  fixedUpdate(deltaTime: number): void {
+    // Check if deltaTime is in milliseconds and convert if needed
+    if (deltaTime > 1) {
+      console.warn('World received large deltaTime - converting from ms to seconds:', deltaTime);
+      deltaTime = deltaTime / 1000;
+    }
+
+    // Cap deltaTime to prevent unstable physics (max 100ms or 0.1s)
+    const safeDeltatime = Math.min(deltaTime, 0.1);
+
+    // Only log on substantial changes, not every frame
+    const currentEntityCount = this.entities.size;
+    const currentSystemCount = this.systems.length;
+
+    if (currentEntityCount !== this.lastLoggedEntityCount ||
+      currentSystemCount !== this.lastLoggedSystemCount) {
+      console.log('World State Changed:', {
+        deltaTime: safeDeltatime,
+        systemCount: currentSystemCount,
+        entityCount: currentEntityCount,
+        change: {
+          entities: currentEntityCount - this.lastLoggedEntityCount,
+          systems: currentSystemCount - this.lastLoggedSystemCount
+        }
+      });
+      this.lastLoggedEntityCount = currentEntityCount;
+      this.lastLoggedSystemCount = currentSystemCount;
+    }
+
+    this.processEntityChanges();
+
+    // Update systems with fixedUpdate methods
+    for (const system of this.systems) {
+      if (system.fixedUpdate) {
+        system.fixedUpdate(safeDeltatime);
+      }
     }
   }
 

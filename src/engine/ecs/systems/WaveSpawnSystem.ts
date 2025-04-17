@@ -46,6 +46,7 @@ export class WaveSpawnSystem extends System {
   private spawnPattern: 'random' | 'sequential' | 'synchronized' = 'random';
   private currentSpawnSide: 'top' | 'right' | 'bottom' | 'left' = 'top';
   private boundary: Boundary;
+  private debug: boolean = false;
 
   constructor(world: World) {
     super(['transform']);
@@ -238,7 +239,8 @@ export class WaveSpawnSystem extends System {
     if (elapsedTime >= wave.spawnDelay) {
       const enemyGroup = this.enemiesRemaining.find(group => group.count > 0);
       if (enemyGroup) {
-        this.spawnEnemy(enemyGroup.type, this.getSpawnPosition());
+        const spawnPosition = this.getSpawnPosition();
+        this.spawnEnemy(enemyGroup.type, spawnPosition);
         enemyGroup.count--;
 
         // Add a small random variation to spawn timing based on deltaTime
@@ -273,13 +275,16 @@ export class WaveSpawnSystem extends System {
         spawnOptions.aiTarget = {
           x: playerPos.x,
           y: playerPos.y,
-          type: 'player'
+          entity: closestPlayer
         };
       }
     }
 
     const enemy = EnemyFactory.createEnemy(spawnOptions);
     this.world.addEntity(enemy);
+
+    // Process entity changes immediately to ensure enemy is registered before render
+    this.world.processEntityChanges();
   }
 
   /**
@@ -340,5 +345,12 @@ export class WaveSpawnSystem extends System {
    */
   getCurrentDifficultyMultiplier(): number {
     return this.currentDifficultyMultiplier;
+  }
+
+  /**
+   * Enable or disable debug logging
+   */
+  setDebug(enabled: boolean): void {
+    this.debug = enabled;
   }
 } 

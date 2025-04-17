@@ -1,16 +1,17 @@
-import { Entity } from '../Entity';
-import { Enemy, EnemyType } from '../components/Enemy';
-import { Transform } from '../components/Transform';
-import { AI } from '../components/AI';
-import { Health } from '../components/Health';
-import { Collider } from '../components/Collider';
-import { Renderer } from '../components/Renderer';
-import { Sprite } from '../../Sprite';
+import { Entity } from '@engine/ecs/Entity';
+import { Enemy, EnemyType } from '@engine/ecs/components/Enemy';
+import { Transform } from '@engine/ecs/components/Transform';
+import { AI } from '@engine/ecs/components/AI';
+import { Health } from '@engine/ecs/components/Health';
+import { Collider } from '@engine/ecs/components/Collider';
+import { Renderer } from '@engine/ecs/components/Renderer';
+import { Sprite } from '@engine/Sprite';
+import { CharacterController } from '@engine/ecs/components/CharacterController';
 
 export interface EnemySpawnOptions {
   position: { x: number; y: number };
   type?: EnemyType;
-  aiTarget?: { x: number; y: number; type: string };
+  aiTarget?: { x: number; y: number; entity?: Entity };
   sprite?: Sprite;
   difficultyMultiplier?: number;
 }
@@ -56,8 +57,16 @@ export class EnemyFactory {
     transform.setPosition(options.position);
     enemy.addComponent(transform);
 
-    // Add health component with difficulty-adjusted health
+    // Add character controller for movement and aiming
     const config = enemyComponent.getConfig();
+    const controller = new CharacterController({
+      maxSpeed: config.speed,
+      acceleration: 1000,
+      deceleration: 800,
+    });
+    enemy.addComponent(controller);
+
+    // Add health component with difficulty-adjusted health
     const health = new Health({ maxHealth: config.health });
     enemy.addComponent(health);
 
@@ -73,10 +82,19 @@ export class EnemyFactory {
 
     // Add renderer component if sprite is available
     const sprite = options.sprite || this.enemySprites[type];
-    if (sprite) {
-      const renderer = new Renderer(sprite);
-      enemy.addComponent(renderer);
+    if (!sprite && process.env.NODE_ENV !== 'production') {
+      console.warn(`No sprite found for enemy type: ${type}`);
     }
+    const renderer = new Renderer(sprite || new Sprite({
+      url: '/sprites/enemy-basic', // Fallback sprite with no extension
+      width: 32,
+      height: 32
+    }));
+
+    // Explicitly ensure the renderer is visible
+    renderer.setVisible(true);
+
+    enemy.addComponent(renderer);
 
     // Add AI component with appropriate behaviors
     const ai = new AI();
@@ -84,7 +102,7 @@ export class EnemyFactory {
     if (options.aiTarget) {
       ai.setTarget({
         position: { x: options.aiTarget.x, y: options.aiTarget.y },
-        type: options.aiTarget.type,
+        entity: options.aiTarget.entity
       });
     }
     enemy.addComponent(ai);
@@ -96,50 +114,22 @@ export class EnemyFactory {
    * Sets up AI behaviors based on enemy type
    */
   private static setupAIBehaviors(ai: AI, type: EnemyType): void {
+    // Set initial state based on enemy type
     switch (type) {
       case EnemyType.Basic:
-        ai.addBehavior({
-          name: 'chase',
-          update: () => {
-            // Basic chase behavior will be implemented in the AI system
-          },
-        });
+        ai.setState('chase');
         break;
 
       case EnemyType.Flanker:
-        ai.addBehavior({
-          name: 'flank',
-          update: () => {
-            // Flanking behavior will be implemented in the AI system
-          },
-        });
+        ai.setState('chase'); // Flankers also chase but with different behavior
         break;
 
       case EnemyType.Ranged:
-        ai.addBehavior({
-          name: 'keepDistance',
-          update: () => {
-            // Ranged behavior will be implemented in the AI system
-          },
-        });
-        ai.addBehavior({
-          name: 'attack',
-          update: () => {
-            // Ranged attack behavior will be implemented in the AI system
-          },
-        });
+        ai.setState('retreat'); // Ranged enemies maintain distance
         break;
+
+      default:
+        ai.setState('idle');
     }
-
-    // Add idle behavior for all enemy types
-    ai.addBehavior({
-      name: 'idle',
-      update: () => {
-        // Idle behavior will be implemented in the AI system
-      },
-    });
-
-    // Set initial state
-    ai.setState(type === EnemyType.Ranged ? 'keepDistance' : 'chase');
   }
 } 

@@ -1,7 +1,7 @@
-import { Component } from '../Entity';
-import { Vector2 } from './Transform';
+import { Component, Entity } from '../Entity';
+import { Vector2 } from '../../math/Vector2';
 
-export type AIState = string;
+export type AIState = 'idle' | 'chase' | 'attack' | 'retreat';
 
 export interface AIBehavior {
   name: string;
@@ -12,7 +12,7 @@ export interface AIBehavior {
 
 export interface AITarget {
   position: Vector2;
-  type: string;
+  entity?: Entity;
 }
 
 /**
@@ -97,14 +97,33 @@ export class AI extends Component {
    * Set the current target
    */
   setTarget(target: AITarget | null): void {
-    this.target = target ? { ...target } : null;
+    // When setting a new target, preserve the reference 
+    // but ensure we have a deep copy of position data
+    if (target) {
+      if (!this.target) {
+        // If we don't have a target yet, create a new one with deep-copied position
+        this.target = {
+          position: { ...target.position },
+          entity: target.entity
+        };
+      } else {
+        // Update existing target's position and entity reference
+        this.target.position.x = target.position.x;
+        this.target.position.y = target.position.y;
+        this.target.entity = target.entity;
+      }
+    } else {
+      this.target = null;
+    }
   }
 
   /**
    * Get the current target
    */
   getTarget(): AITarget | null {
-    return this.target ? { ...this.target } : null;
+    // Return the original target reference to maintain consistency
+    // This allows systems to update the target position directly
+    return this.target;
   }
 
   /**

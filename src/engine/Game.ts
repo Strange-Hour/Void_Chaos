@@ -25,6 +25,9 @@ export interface GameConfig extends CanvasConfig {
  * Main game class that manages the ECS and game loop
  */
 export class Game {
+  // Static property to track the last force redraw time
+  private static _lastForceRedrawTime: number = 0;
+
   private canvas: Canvas;
   private entities: Map<number, Entity>;
   private systems: System[];
@@ -57,8 +60,10 @@ export class Game {
    */
   addEntity(entity: Entity): void {
     this.entities.set(entity.getId(), entity);
-    // Add entity to all relevant systems
-    this.systems.forEach(system => system.addEntity(entity));
+    // Add entity to all systems
+    this.systems.forEach(system => {
+      system.addEntity(entity);
+    });
   }
 
   /**
@@ -67,7 +72,9 @@ export class Game {
   removeEntity(entity: Entity): void {
     this.entities.delete(entity.getId());
     // Remove entity from all systems
-    this.systems.forEach(system => system.removeEntity(entity));
+    this.systems.forEach(system => {
+      system.removeEntity(entity);
+    });
   }
 
   /**
@@ -103,6 +110,7 @@ export class Game {
    */
   start(): void {
     this.lastFixedUpdateTime = performance.now();
+    this.accumulator = 0;
     this.canvas.start();
   }
 
@@ -186,5 +194,35 @@ export class Game {
    */
   private isInterpolatedSystem(system: System): system is System & { interpolatedUpdate: (deltaTime: number, alpha: number) => void } {
     return 'interpolatedUpdate' in system;
+  }
+
+  /**
+   * Force an immediate redraw of the game
+   * This is useful for ensuring visual systems like debug overlays are updated
+   */
+  public forceRedraw(): void {
+    // Use static timestamp to prevent excessive redraws
+    const currentTime = Date.now();
+    const lastRedrawTime = Game._lastForceRedrawTime;
+
+    // Prevent more than 10 redraws per second
+    if (currentTime - lastRedrawTime < 100) {
+      return;
+    }
+
+    // Update timestamp
+    Game._lastForceRedrawTime = currentTime;
+
+    // Force all systems to update immediately
+    this.systems.forEach(system => {
+      if (this.isInterpolatedSystem(system)) {
+        system.interpolatedUpdate(0.016, 1.0); // Standard 60fps timestep
+      } else {
+        system.update(0.016);
+      }
+    });
+
+    // Also force the canvas to redraw
+    this.canvas.forceRedraw();
   }
 } 

@@ -51,7 +51,8 @@ export class InputManager {
       this.lastAxisValues.set(action, {
         value: { x: 0, y: 0 },
         normalized: { x: 0, y: 0 },
-        magnitude: 0
+        magnitude: 0,
+        active: false
       });
     });
   }
@@ -92,11 +93,21 @@ export class InputManager {
       }
     });
 
-    // Process input actions
+    // Process input actions with more detailed logging
     Object.values(InputAction).forEach(action => {
       this.processAction(action, deltaTime);
       this.processAxis(action);
     });
+
+    // Debug log active axes (Move and Aim)
+    const moveAxis = this.lastAxisValues.get(InputAction.Move);
+    if (moveAxis && moveAxis.magnitude > 0) {
+      console.log('Active Move Axis:', {
+        value: moveAxis.value,
+        normalized: moveAxis.normalized,
+        magnitude: moveAxis.magnitude
+      });
+    }
   }
 
   /**
@@ -119,7 +130,8 @@ export class InputManager {
     const axis = this.lastAxisValues.get(action) || {
       value: { x: 0, y: 0 },
       normalized: { x: 0, y: 0 },
-      magnitude: 0
+      magnitude: 0,
+      active: false
     };
     return { ...axis };
   }
@@ -203,6 +215,9 @@ export class InputManager {
           resultAxis.x += axis.value.x;
           resultAxis.y += axis.value.y;
           hasInput = true;
+
+          // Debug which provider is giving input
+          console.log(`Provider ${provider.deviceType} has active input for ${action}:`, axis);
         }
       }
     });
@@ -216,13 +231,31 @@ export class InputManager {
     const newAxis: InputAxis = {
       value: resultAxis,
       normalized,
-      magnitude: Math.min(magnitude, 1)
+      magnitude: Math.min(magnitude, 1),
+      active: hasInput
     };
 
     const lastAxis = this.lastAxisValues.get(action)!;
+    const hasChanged =
+      lastAxis.magnitude !== newAxis.magnitude ||
+      lastAxis.normalized.x !== newAxis.normalized.x ||
+      lastAxis.normalized.y !== newAxis.normalized.y;
+
     if (hasInput || lastAxis.magnitude > 0) {
-      this.lastAxisValues.set(action, newAxis);
-      this.subscribers.forEach(sub => sub.onInputAxisChange?.(action, newAxis));
+      if (hasChanged) {
+        console.log(`InputManager: Axis ${action} changed:`, {
+          from: { mag: lastAxis.magnitude, norm: lastAxis.normalized },
+          to: { mag: newAxis.magnitude, norm: newAxis.normalized }
+        });
+
+        this.lastAxisValues.set(action, newAxis);
+        this.subscribers.forEach(sub => {
+          if (sub.onInputAxisChange) {
+            console.log(`Notifying subscriber ${sub.constructor.name} of axis change`);
+            sub.onInputAxisChange(action, newAxis);
+          }
+        });
+      }
     }
   }
 } 

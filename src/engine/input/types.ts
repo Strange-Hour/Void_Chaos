@@ -46,7 +46,8 @@ export enum InputAction {
   PrimaryAction = 'primaryAction',
   SecondaryAction = 'secondaryAction',
   Interact = 'interact',
-  Menu = 'menu'
+  Menu = 'menu',
+  Debug = 'debug'
 }
 
 /**

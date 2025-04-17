@@ -4,6 +4,8 @@
  */
 
 import { Sprite, SpriteConfig } from './Sprite';
+import { EnemyType } from './ecs/components/Enemy';
+import { EnemyFactory } from './ecs/factories/EnemyFactory';
 
 interface SpriteCache {
   [key: string]: Sprite;
@@ -30,7 +32,6 @@ export class SpriteManager {
    * Gets or creates a sprite
    */
   public getSprite(url: string, config?: Partial<SpriteConfig>, options: SpriteLoadOptions = {}): Sprite {
-    console.log(`Getting sprite: ${url}`);
     // Return cached sprite if available
     if (this.cache[url]) {
       return this.cache[url];
@@ -73,7 +74,7 @@ export class SpriteManager {
    * Queues a sprite for loading
    */
   private queueLoad(url: string, options: SpriteLoadOptions = {}): void {
-    console.log(`Queueing sprite: ${url} with priority: ${options.priority}`);
+
     // Add to queue based on priority
     const index = options.priority === 'high' ? 0 : this.loadQueue.length;
     this.loadQueue.splice(index, 0, { url, options });
@@ -92,7 +93,6 @@ export class SpriteManager {
 
     this.isProcessingQueue = true;
 
-    console.log(`Processing queue. Current queue length: ${this.loadQueue.length}, Active loads: ${this.activeLoads}`);
 
     while (this.loadQueue.length > 0 && this.activeLoads < this.maxConcurrentLoads) {
       const { url } = this.loadQueue.shift()!;
@@ -111,11 +111,9 @@ export class SpriteManager {
             resolve();
           } else {
             img.onload = () => {
-              console.log(`Loading sprite: ${url}`);
               resolve();
             };
             img.onerror = () => {
-              console.log(`Error loading sprite: ${url}`);
               reject(new Error(`Failed to load sprite: ${url}`));
             };
           }
@@ -129,7 +127,6 @@ export class SpriteManager {
 
     this.isProcessingQueue = false;
 
-    console.log(`Finished processing queue. Remaining queue length: ${this.loadQueue.length}, Active loads: ${this.activeLoads}`);
 
     // Continue processing if there are more items in the queue
     if (this.loadQueue.length > 0) {
@@ -167,5 +164,89 @@ export class SpriteManager {
    */
   public setMaxConcurrentLoads(max: number): void {
     this.maxConcurrentLoads = Math.max(1, max);
+  }
+
+  /**
+   * Preloads essential game sprites
+   */
+  public static preloadEssentialSprites(): Promise<void> {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Preloading essential game sprites...');
+    }
+
+    // Define essential sprites - without file extensions to allow format fallback
+    const essentialSprites = [
+      { url: '/sprites/player', width: 32, height: 32 },
+      { url: '/sprites/enemy-basic', width: 32, height: 32 },
+      { url: '/sprites/enemy-flanker', width: 32, height: 32 },
+      { url: '/sprites/enemy-ranged', width: 32, height: 32 },
+    ];
+
+    // Create sprite instances
+    const sprites = essentialSprites.map(config => new Sprite(config));
+
+    // Log paths for debugging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Preloading sprites:', essentialSprites.map(s => s.url));
+    }
+
+    // Force load all sprites with a longer timeout
+    return Promise.all(sprites.map(sprite =>
+      sprite.forceLoad(15000)
+        .catch(err => {
+          console.error(`Failed to preload sprite ${sprite.getUrl()}:`, err);
+          // Continue despite error
+          return Promise.resolve();
+        })
+    ))
+      .then(() => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Essential sprites preloaded successfully');
+        }
+        return Promise.resolve();
+      })
+      .catch(err => {
+        console.error('Error during sprite preloading:', err);
+        // Continue despite errors
+        return Promise.resolve();
+      });
+  }
+
+  /**
+   * Checks if all enemy sprites are loaded and logs their status
+   */
+  public static checkEnemySpritesLoaded(): boolean {
+    const enemyTypes = [EnemyType.Basic, EnemyType.Flanker, EnemyType.Ranged];
+    let allLoaded = true;
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Checking enemy sprite loading status:');
+    }
+
+    // Check each enemy type
+    enemyTypes.forEach(type => {
+      // Get sprite directly from EnemyFactory without creating an entity
+      const sprite = this.getEnemySpriteForType(type);
+      const isLoaded = sprite?.isReady() || false;
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`- Enemy type ${type}: ${isLoaded ? 'LOADED' : 'NOT LOADED'}`);
+      }
+
+      if (!isLoaded) {
+        allLoaded = false;
+      }
+    });
+
+    return allLoaded;
+  }
+
+  /**
+   * Gets the sprite for a specific enemy type from the EnemyFactory
+   */
+  private static getEnemySpriteForType(type: EnemyType): Sprite | undefined {
+    // Access the sprite directly from EnemyFactory's static cache
+    // @ts-expect-error - Accessing private static property
+    return EnemyFactory.enemySprites[type];
   }
 } 

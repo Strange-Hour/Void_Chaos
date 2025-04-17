@@ -20,6 +20,7 @@ type KeyMappings = {
   [InputAction.SecondaryAction]: string[];
   [InputAction.Interact]: string[];
   [InputAction.Menu]: string[];
+  [InputAction.Debug]: string[];
   [InputAction.Aim]: never; // Aim is handled by mouse
 };
 
@@ -37,6 +38,7 @@ const DEFAULT_KEY_MAPPINGS: KeyMappings = {
   [InputAction.SecondaryAction]: ['Shift'],
   [InputAction.Interact]: ['e', 'Enter'],
   [InputAction.Menu]: ['Escape'],
+  [InputAction.Debug]: ['F1'],
   [InputAction.Aim]: undefined as never
 };
 
@@ -127,25 +129,32 @@ export class KeyboardInputProvider implements IInputProvider {
         (this.isAnyKeyPressed(mapping.right) ? 1 : 0) -
         (this.isAnyKeyPressed(mapping.left) ? 1 : 0);
       const y =
-        (this.isAnyKeyPressed(mapping.up) ? 1 : 0) -
-        (this.isAnyKeyPressed(mapping.down) ? 1 : 0);
+        (this.isAnyKeyPressed(mapping.down) ? 1 : 0) -
+        (this.isAnyKeyPressed(mapping.up) ? 1 : 0);
 
       const value: Vector2 = { x, y };
       const magnitude = Math.sqrt(x * x + y * y);
       const normalized: Vector2 =
         magnitude > 0 ? { x: x / magnitude, y: y / magnitude } : { x: 0, y: 0 };
 
+      // Only log if there's actual input
+      if (magnitude > 0) {
+        console.log('Move Input:', { x, y, magnitude, normalized });
+      }
+
       return {
         value,
         normalized,
-        magnitude: Math.min(magnitude, 1)
+        magnitude: Math.min(magnitude, 1),
+        active: magnitude > 0
       };
     }
 
     return {
       value: { x: 0, y: 0 },
       normalized: { x: 0, y: 0 },
-      magnitude: 0
+      magnitude: 0,
+      active: false
     };
   }
 
@@ -166,10 +175,16 @@ export class KeyboardInputProvider implements IInputProvider {
    */
   private handleKeyDown = (event: KeyboardEvent): void => {
     const key = event.key;
+    console.log('Key Down:', { key, pressedKeys: Array.from(this.pressedKeys) });
+
+    // Handle key to ensure it's registered
     if (!this.pressedKeys.has(key)) {
       this.pressedKeys.add(key);
       this.justPressedKeys.add(key);
       this.keyDurations.set(key, 0);
+
+      // Explicitly log the mapped action (if any)
+      this.logKeyToActionMapping(key, true);
     }
   };
 
@@ -178,9 +193,14 @@ export class KeyboardInputProvider implements IInputProvider {
    */
   private handleKeyUp = (event: KeyboardEvent): void => {
     const key = event.key;
+    console.log('Key Up:', { key, pressedKeys: Array.from(this.pressedKeys) });
+
     this.pressedKeys.delete(key);
     this.justReleasedKeys.add(key);
     this.keyDurations.delete(key);
+
+    // Explicitly log the mapped action (if any)
+    this.logKeyToActionMapping(key, false);
   };
 
   /**
@@ -188,5 +208,28 @@ export class KeyboardInputProvider implements IInputProvider {
    */
   private isAnyKeyPressed(keys: string[]): boolean {
     return keys.some(key => this.pressedKeys.has(key));
+  }
+
+  /**
+   * Log which action a key maps to (for debugging)
+   */
+  private logKeyToActionMapping(key: string, isPressed: boolean): void {
+    // Find which action this key maps to
+    for (const [actionName, mapping] of Object.entries(this.keyMappings)) {
+      if (actionName === InputAction.Move) {
+        const directions = mapping as DirectionalMapping;
+        if (directions.up.includes(key)) {
+          console.log(`Key ${key} maps to ${actionName} (UP) - ${isPressed ? 'pressed' : 'released'}`);
+        } else if (directions.down.includes(key)) {
+          console.log(`Key ${key} maps to ${actionName} (DOWN) - ${isPressed ? 'pressed' : 'released'}`);
+        } else if (directions.left.includes(key)) {
+          console.log(`Key ${key} maps to ${actionName} (LEFT) - ${isPressed ? 'pressed' : 'released'}`);
+        } else if (directions.right.includes(key)) {
+          console.log(`Key ${key} maps to ${actionName} (RIGHT) - ${isPressed ? 'pressed' : 'released'}`);
+        }
+      } else if (Array.isArray(mapping) && mapping.includes(key)) {
+        console.log(`Key ${key} maps to ${actionName} - ${isPressed ? 'pressed' : 'released'}`);
+      }
+    }
   }
 } 
