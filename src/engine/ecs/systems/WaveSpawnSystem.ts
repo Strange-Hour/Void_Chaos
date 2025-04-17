@@ -259,8 +259,11 @@ export class WaveSpawnSystem extends System {
    * Spawn an enemy with current difficulty multiplier applied
    */
   private spawnEnemy(type: EnemyType, position: Vector2): void {
+    // Find a valid spawn position that doesn't overlap with existing entities
+    const validPosition = this.findValidSpawnPosition(position, type);
+
     const spawnOptions: EnemySpawnOptions = {
-      position,
+      position: validPosition, // Use verified position
       type,
       difficultyMultiplier: this.currentDifficultyMultiplier
     };
@@ -268,7 +271,7 @@ export class WaveSpawnSystem extends System {
     // Find closest player for AI targeting
     const players = this.world.getEntities().filter(entity => entity.hasComponent('player'));
     if (players.length > 0) {
-      const closestPlayer = this.findClosestPlayer(position, players);
+      const closestPlayer = this.findClosestPlayer(validPosition, players);
       const playerTransform = closestPlayer.getComponent('transform') as Transform;
       if (playerTransform) {
         const playerPos = playerTransform.getPosition();
@@ -285,6 +288,142 @@ export class WaveSpawnSystem extends System {
 
     // Process entity changes immediately to ensure enemy is registered before render
     this.world.processEntityChanges();
+
+    if (this.debug) {
+      console.log(`Spawned ${type} enemy at position (${validPosition.x.toFixed(1)}, ${validPosition.y.toFixed(1)})`);
+    }
+  }
+
+  /**
+   * Find a valid spawn position that doesn't overlap with existing entities
+   * @param initialPosition The initially suggested spawn position
+   * @param enemyType The type of enemy to spawn
+   * @returns A valid position that doesn't overlap with other entities
+   */
+  private findValidSpawnPosition(initialPosition: Vector2, enemyType: EnemyType): Vector2 {
+    // Set parameters for spawn position search
+    const maxAttempts = 10;
+    const minDistance = 60; // Minimum distance between entities (larger than collision boxes)
+    const allEntities = this.world.getEntities();
+
+    // Try the initial position first
+    if (!this.isPositionNearEntities(initialPosition, allEntities, minDistance)) {
+      return initialPosition;
+    }
+
+    // If the initial position is not valid, try alternative positions
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // On each attempt, try a position further from the edge
+      const distanceFromEdge = this.boundary.padding! + (attempt * 20);
+      const { width, height } = this.boundary;
+
+      // Try different sides based on the enemy type for better distribution
+      let side: 'top' | 'right' | 'bottom' | 'left';
+
+      switch (enemyType) {
+        case EnemyType.Basic:
+          // Basic enemies prefer top and bottom
+          side = Math.random() < 0.5 ? 'top' : 'bottom';
+          break;
+        case EnemyType.Flanker:
+          // Flankers prefer sides
+          side = Math.random() < 0.5 ? 'left' : 'right';
+          break;
+        case EnemyType.Ranged:
+          // Ranged enemies can be anywhere
+          side = ['top', 'right', 'bottom', 'left'][Math.floor(Math.random() * 4)] as 'top' | 'right' | 'bottom' | 'left';
+          break;
+        default:
+          side = ['top', 'right', 'bottom', 'left'][Math.floor(Math.random() * 4)] as 'top' | 'right' | 'bottom' | 'left';
+      }
+
+      // Get position with jitter
+      let testPosition: Vector2;
+
+      switch (side) {
+        case 'top':
+          testPosition = {
+            x: distanceFromEdge + Math.random() * (width - 2 * distanceFromEdge),
+            y: distanceFromEdge
+          };
+          break;
+        case 'right':
+          testPosition = {
+            x: width - distanceFromEdge,
+            y: distanceFromEdge + Math.random() * (height - 2 * distanceFromEdge)
+          };
+          break;
+        case 'bottom':
+          testPosition = {
+            x: distanceFromEdge + Math.random() * (width - 2 * distanceFromEdge),
+            y: height - distanceFromEdge
+          };
+          break;
+        case 'left':
+          testPosition = {
+            x: distanceFromEdge,
+            y: distanceFromEdge + Math.random() * (height - 2 * distanceFromEdge)
+          };
+          break;
+      }
+
+      // Check if this position is valid
+      if (!this.isPositionNearEntities(testPosition, allEntities, minDistance)) {
+        if (this.debug) {
+          console.log(`Found valid spawn position on attempt ${attempt + 1}`);
+        }
+        return testPosition;
+      }
+    }
+
+    // If we can't find a valid position after max attempts, add some random offset to original position
+    // This is a fallback to prevent spawn failures
+    const fallbackPosition = {
+      x: initialPosition.x + (Math.random() * 100) - 50,
+      y: initialPosition.y + (Math.random() * 100) - 50
+    };
+
+    // Ensure position is within boundaries
+    fallbackPosition.x = Math.max(this.boundary.padding!, Math.min(this.boundary.width - this.boundary.padding!, fallbackPosition.x));
+    fallbackPosition.y = Math.max(this.boundary.padding!, Math.min(this.boundary.height - this.boundary.padding!, fallbackPosition.y));
+
+    if (this.debug) {
+      console.log(`Using fallback spawn position after ${maxAttempts} failed attempts`);
+    }
+
+    return fallbackPosition;
+  }
+
+  /**
+   * Check if a position is too close to any existing entity
+   * @param position Position to check
+   * @param entities Entities to check against
+   * @param minDistance Minimum required distance
+   * @returns True if the position is too close to an entity
+   */
+  private isPositionNearEntities(position: Vector2, entities: Entity[], minDistance: number): boolean {
+    for (const entity of entities) {
+      // Skip entities without transform
+      if (!entity.hasComponent('transform')) {
+        continue;
+      }
+
+      const transform = entity.getComponent('transform') as Transform;
+      const entityPos = transform.getPosition();
+
+      // Calculate distance
+      const dx = position.x - entityPos.x;
+      const dy = position.y - entityPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If too close, return true
+      if (distance < minDistance) {
+        return true;
+      }
+    }
+
+    // No entities are too close
+    return false;
   }
 
   /**

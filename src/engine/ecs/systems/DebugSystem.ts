@@ -8,6 +8,7 @@ import { InputManager } from '../../input/InputManager';
 import { InputAction, IInputEventSubscriber } from '../../input/types';
 import { Renderer } from '../components/Renderer';
 import { Enemy } from '../components/Enemy';
+import { Health } from '../components/Health';
 
 export class DebugSystem extends System implements IInputEventSubscriber {
   private canvas: Canvas;
@@ -15,6 +16,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
     transform: Transform;
     controller: CharacterController;
     ai?: AI;
+    health?: Health;
   }>;
   private isEnabled: boolean = false;
   private inputManager: InputManager;
@@ -57,14 +59,16 @@ export class DebugSystem extends System implements IInputEventSubscriber {
       const transform = entity.getComponent('transform') as Transform;
       const controller = entity.getComponent('character-controller') as CharacterController;
       const ai = entity.getComponent('ai') as AI | undefined;
+      const health = entity.getComponent('health') as Health | undefined;
 
-      this.debugEntities.set(entity, { transform, controller, ai });
+      this.debugEntities.set(entity, { transform, controller, ai, health });
 
       console.log('DebugSystem: Added entity', {
         entityId: entity.getId(),
         hasTransform: !!transform,
         hasController: !!controller,
-        hasAI: !!ai
+        hasAI: !!ai,
+        hasHealth: !!health
       });
 
       // Force an update to draw targeting lines immediately when new AI entities are added
@@ -116,7 +120,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
     this.forceDrawEvenWhenDisabled = false;
 
     // Log info about debug entities
-    this.debugEntities.forEach(({ transform, controller }, entity) => {
+    this.debugEntities.forEach(({ transform, controller, health }, entity) => {
       const position = transform.getPosition();
       const velocity = controller.getVelocity();
       const moveDir = controller.getMoveDirection();
@@ -127,7 +131,8 @@ export class DebugSystem extends System implements IInputEventSubscriber {
         velocity,
         moveDir,
         hasAI: entity.hasComponent('ai'),
-        isPlayer: entity.hasComponent('player')
+        isPlayer: entity.hasComponent('player'),
+        health: health ? `${health.getCurrentHealth()}/${health.getMaxHealth()}` : 'N/A'
       });
     });
   }
@@ -169,7 +174,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
     this.drawEntityOutlines();
 
     // Draw debug info for each entity
-    this.debugEntities.forEach(({ transform, controller, ai }) => {
+    this.debugEntities.forEach(({ transform, controller, ai, health }) => {
       const position = transform.getPosition();
       const velocity = controller.getVelocity();
       const moveDir = controller.getMoveDirection();
@@ -185,6 +190,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
         this.debugLayer.fillText(`Updated: ${timeStamp}`, position.x + 20, position.y - 32);
         this.debugLayer.fillText(`State: ${state}`, position.x + 20, position.y - 20);
         this.debugLayer.fillText(`Vel: ${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}`, position.x + 20, position.y - 8);
+
 
         // Draw line to target if exists (yellow)
         if (target) {
@@ -208,6 +214,8 @@ export class DebugSystem extends System implements IInputEventSubscriber {
         // Player debug info
         this.debugLayer.fillText(`Player`, position.x + 20, position.y - 20);
         this.debugLayer.fillText(`Vel: ${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}`, position.x + 20, position.y - 8);
+
+
       }
 
       // Draw velocity vector (red)
@@ -280,6 +288,41 @@ export class DebugSystem extends System implements IInputEventSubscriber {
               ? (entity.getComponent('enemy') as Enemy).getEnemyType()
               : (entity.hasComponent('player') ? 'player' : 'unknown');
             this.debugLayer.fillText(entityType, drawX, drawY - 5);
+
+            // Add health info if available - MOVED BELOW ENTITY
+            if (entity.hasComponent('health')) {
+              const health = entity.getComponent('health') as Health;
+
+              // Draw health bar below entity
+              const barWidth = dimensions.width;
+              const barHeight = 4; // Slightly taller for better visibility
+              const barY = drawY + dimensions.height + 5; // Position below entity
+
+              // Background
+              this.debugLayer.fillStyle = 'rgba(0, 0, 0, 0.6)';
+              this.debugLayer.fillRect(drawX, barY, barWidth, barHeight);
+
+              // Health fill
+              const healthPercent = health.getCurrentHealth() / health.getMaxHealth();
+              this.debugLayer.fillStyle = this.getHealthColor(health);
+              this.debugLayer.fillRect(drawX, barY, barWidth * healthPercent, barHeight);
+
+              // Border
+              this.debugLayer.strokeStyle = 'white';
+              this.debugLayer.lineWidth = 0.5;
+              this.debugLayer.strokeRect(drawX, barY, barWidth, barHeight);
+
+              // Display numerical health for debug purposes
+              if (this.isEnabled) {
+                this.debugLayer.fillStyle = 'white';
+                this.debugLayer.font = '9px Arial';
+                this.debugLayer.fillText(
+                  `${health.getCurrentHealth()}/${health.getMaxHealth()}`,
+                  drawX + barWidth / 2 - 10,
+                  barY + barHeight + 8
+                );
+              }
+            }
 
             this.debugLayer.restore();
           }
@@ -377,9 +420,24 @@ export class DebugSystem extends System implements IInputEventSubscriber {
         components.ai = entity.getComponent('ai') as AI;
       }
 
+      // Get fresh health component if it exists
+      if (entity.hasComponent('health')) {
+        components.health = entity.getComponent('health') as Health;
+      }
+
       // Refresh transform and controller references
       components.transform = entity.getComponent('transform') as Transform;
       components.controller = entity.getComponent('character-controller') as CharacterController;
     });
+  }
+
+  /**
+   * Get appropriate color based on health percentage
+   */
+  private getHealthColor(health: Health): string {
+    const healthPercent = health.getCurrentHealth() / health.getMaxHealth();
+    if (healthPercent > 0.7) return 'lime';
+    if (healthPercent > 0.3) return 'yellow';
+    return 'red';
   }
 } 

@@ -25,6 +25,10 @@ import { InputSystem } from "@engine/ecs/systems/InputSystem";
 import { DebugSystem } from "@engine/ecs/systems/DebugSystem";
 import { WorldSystem } from "@engine/ecs/systems/WorldSystem";
 import { SpriteManager } from "@engine/SpriteManager";
+import { CollisionSystem } from "@engine/ecs/systems/CollisionSystem";
+import { Collider } from "@engine/ecs/components/Collider";
+import { Enemy } from "@engine/ecs/components/Enemy";
+import { Health } from "@engine/ecs/components/Health";
 
 // This ensures the component is a Client Component in Next.js
 
@@ -35,30 +39,99 @@ interface CustomWindow extends Window {
   checkDebugStatus?: any;
   game?: Game;
   gameWorld?: World;
+  collisionSystem?: CollisionSystem;
+  checkCollisions?: () => void;
   _lastGameRedrawTime?: number;
 }
 
-// Add a debug helper for checking the game state
+/**
+ * Utility function to check debug system status
+ */
 function checkDebugStatus() {
-  try {
-    // Access the debug system from window
+  if (typeof window !== "undefined") {
     const debugSystem = (window as CustomWindow).debugSystem;
-    if (!debugSystem) {
-      console.error("Debug system not found on window object");
+    if (debugSystem) {
+      const isEnabled = (debugSystem as unknown as { isEnabled: boolean })
+        .isEnabled;
+      console.log("Debug system status:", isEnabled);
+      return isEnabled;
+    }
+  }
+  return false;
+}
+
+/**
+ * Utility function to check collision system status and entity colliders
+ */
+function checkCollisions() {
+  if (typeof window !== "undefined") {
+    const collisionSystem = (window as CustomWindow).collisionSystem;
+    const world = (window as CustomWindow).gameWorld;
+
+    if (!collisionSystem || !world) {
+      console.error("Collision system or world not available");
       return;
     }
 
-    // Use a method we know exists to verify it's the right object
-    const requirements = debugSystem.getRequiredComponents();
-    console.log("Debug system requirements:", requirements);
+    console.log("Checking collision system:", {
+      system: collisionSystem.constructor.name,
+      entities: collisionSystem.getEntities().length,
+    });
 
-    // Try to invoke toggleDebug directly
-    console.log("Attempting to toggle debug mode directly...");
-    debugSystem.toggleDebug();
+    // Get and log all entities with colliders
+    const entitiesWithColliders = world
+      .getEntities()
+      .filter((e) => e.hasComponent("collider"));
 
-    console.log("Debug system seems to be working");
-  } catch (error) {
-    console.error("Error accessing debug system:", error);
+    console.log(
+      `Found ${entitiesWithColliders.length} entities with colliders:`
+    );
+    entitiesWithColliders.forEach((entity) => {
+      const collider = entity.getComponent("collider") as Collider;
+      const transform = entity.getComponent("transform") as Transform;
+      const position = transform ? transform.getPosition() : { x: 0, y: 0 };
+
+      // Determine entity type
+      let entityType = "unknown";
+      if (entity.hasComponent("player")) entityType = "player";
+      else if (entity.hasComponent("enemy")) {
+        const enemy = entity.getComponent("enemy") as Enemy;
+        entityType = `enemy (${enemy.getEnemyType()})`;
+      }
+
+      console.log(`- Entity ${entity.getId()} (${entityType}):`);
+      console.log(`  Position: x=${position.x}, y=${position.y}`);
+      console.log(`  Collider layer: ${collider.getLayer()}`);
+      console.log(`  Bounds: ${JSON.stringify(collider.getBounds())}`);
+    });
+
+    // Check if player and enemies exist and their distance
+    const players = entitiesWithColliders.filter((e) =>
+      e.hasComponent("player")
+    );
+    const enemies = entitiesWithColliders.filter((e) =>
+      e.hasComponent("enemy")
+    );
+
+    if (players.length > 0 && enemies.length > 0) {
+      const player = players[0];
+      const playerTransform = player.getComponent("transform") as Transform;
+      const playerPos = playerTransform.getPosition();
+
+      console.log("\nDistances from player to enemies:");
+      enemies.forEach((enemy) => {
+        const enemyTransform = enemy.getComponent("transform") as Transform;
+        const enemyPos = enemyTransform.getPosition();
+
+        const dx = playerPos.x - enemyPos.x;
+        const dy = playerPos.y - enemyPos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        console.log(
+          `- Enemy ${enemy.getId()}: distance=${distance.toFixed(2)} units`
+        );
+      });
+    }
   }
 }
 
@@ -67,7 +140,10 @@ function checkDebugStatus() {
 
 export default function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [debug, setDebug] = useState(false); // Start with debug mode disabled by default
+  const [debug, setDebug] = useState(false);
+  const [playerStats, setPlayerStats] = useState("HP: 100");
+  const [entityCount, setEntityCount] = useState(0);
+  const [fps, setFps] = useState(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -146,6 +222,31 @@ export default function GameCanvas() {
             console.log("Automatic force redraw triggered (interval)");
             (game as unknown as { forceRedraw: () => void }).forceRedraw();
             customWin._lastGameRedrawTime = currentTime;
+
+            // Update stats display
+            if (customWin.gameWorld) {
+              const world = customWin.gameWorld;
+
+              // Update entity count
+              setEntityCount(world.getEntities().length);
+
+              // Update FPS (fixed value since Canvas doesn't expose FPS)
+              setFps(60);
+
+              // Update player stats if player exists
+              const players = world
+                .getEntities()
+                .filter((e) => e.hasComponent("player"));
+              if (players.length > 0) {
+                const player = players[0];
+                if (player.hasComponent("health")) {
+                  const health = player.getComponent("health") as Health;
+                  setPlayerStats(
+                    `HP: ${health.getCurrentHealth()}/${health.getMaxHealth()}`
+                  );
+                }
+              }
+            }
           }
         }
       }
@@ -346,8 +447,32 @@ export default function GameCanvas() {
             const aiBehaviorSystem = new AIBehaviorSystem();
             const waveSpawnSystem = new WaveSpawnSystem(world);
 
+            // Initialize collision system
+            console.log("Initializing collision system for the game...");
+            const collisionSystem = game.initializeCollisionSystem();
+
+            // Enable debug mode for collision system
+            collisionSystem.setDebug(true);
+            collisionSystem.setResolutionStrength(0.7); // Stronger collision response
+
+            // Configure collision layers
+            // Layer 1 = Player, Layer 2 = Enemies
+            collisionSystem.setLayerCollision(1, 1, true); // Player can collide with player (not relevant in single player)
+            collisionSystem.setLayerCollision(1, 2, true); // Player can collide with enemies
+            collisionSystem.setLayerCollision(2, 2, false); // Enemies cannot collide with other enemies
+
+            console.log("Collision system created and configured:", {
+              system: collisionSystem.constructor.name,
+              requirements: collisionSystem.getRequiredComponents(),
+              debug: true,
+              resolutionStrength: 0.7,
+            });
+
             // Store reference to debug system for debugging
             (window as CustomWindow).debugSystem = debugSystem;
+            (window as CustomWindow).collisionSystem = collisionSystem;
+            (window as CustomWindow).gameWorld = world;
+            (window as CustomWindow).checkCollisions = checkCollisions;
 
             // Log debug system state
             console.log("DebugSystem initialized:", {
@@ -407,6 +532,7 @@ export default function GameCanvas() {
               playerScaling: 0.3,
             });
             waveSpawnSystem.setSpawnPattern("sequential");
+            waveSpawnSystem.setDebug(true); // Enable debug logging for spawn system
 
             // Add systems to world in correct order
             world.addSystem(inputSystem);
@@ -415,6 +541,13 @@ export default function GameCanvas() {
             world.addSystem(aiBehaviorSystem);
             world.addSystem(debugSystem);
             world.addSystem(renderSystem);
+
+            // Add collision system to the world as well to ensure it receives entities
+            world.addSystem(collisionSystem);
+            console.log(
+              "Added collision system to world, now has these systems:",
+              world.getSystems().map((s) => s.constructor.name)
+            );
 
             // Create WorldSystem to manage world updates
             const worldSystem = new WorldSystem(world);
@@ -524,49 +657,27 @@ export default function GameCanvas() {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      data-testid='game-canvas-container'
-      style={{
-        width: "800px",
-        height: "600px",
-        margin: "0 auto",
-        border: "1px solid #333",
-        position: "relative",
-      }}
-    >
-      {/* Debug State Indicator */}
+    <div className='relative w-full h-full'>
+      <div
+        ref={containerRef}
+        className='w-full h-full flex items-center justify-center'
+      ></div>
+
+      {/* Debug status display */}
       {debug && (
-        <div
-          style={{
-            position: "absolute",
-            top: 10,
-            left: 10,
-            zIndex: 1002,
-            backgroundColor: "#00aa00",
-            color: "white",
-            padding: "5px 10px",
-            borderRadius: "3px",
-            fontWeight: "bold",
-            opacity: 0.8,
-            boxShadow: "0 0 4px rgba(0,0,0,0.5)",
-          }}
-        >
-          Debug: ON
+        <div className='absolute bottom-[-150px] right-0 bg-black bg-opacity-80 text-white p-2 text-sm'>
+          <p>Debug: ENABLED (F1 to toggle)</p>
+          <p>Player Stats: {playerStats}</p>
+          <p>
+            Entities: {entityCount} / FPS: {fps}
+          </p>
+          <p className='text-yellow-400 text-xs mt-2'>
+            Open browser console and run{" "}
+            <span className='font-mono'>window.checkCollisions()</span> to debug
+            collision issues
+          </p>
         </div>
       )}
-
-      {/* Game Controls */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 10,
-          left: 10,
-          zIndex: 1001,
-        }}
-      >
-        {/* Placeholder for game controls */}
-      </div>
     </div>
   );
 }
@@ -599,6 +710,25 @@ function createPlayer(sprite: Sprite): Entity {
   // Add player component to identify as player
   player.addComponent(new Player());
 
+  // Add collider component for collision detection
+  const collider = new Collider(
+    {
+      width: 32,
+      height: 32,
+      offset: { x: -16, y: -16 }, // Center collider on player
+    },
+    {
+      layer: 1, // Player is on layer 1
+      isTrigger: false,
+      isStatic: false,
+    }
+  );
+  player.addComponent(collider);
+
+  // Add health component
+  const health = new Health({ maxHealth: 100 });
+  player.addComponent(health);
+
   // Set an initial aim direction to test debug visualization
   const playerController = player.getComponent(
     "character-controller"
@@ -615,6 +745,14 @@ function createPlayer(sprite: Sprite): Entity {
     sprite: {
       url: sprite.getUrl(),
       loaded: sprite.isReady(),
+    },
+    collider: {
+      layer: collider.getLayer(),
+      bounds: collider.getBounds(),
+    },
+    health: {
+      current: health.getCurrentHealth(),
+      max: health.getMaxHealth(),
     },
     components: player.getComponents().map((c) => ({
       type: c.getType(),

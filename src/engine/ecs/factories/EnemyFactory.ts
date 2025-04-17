@@ -76,6 +76,7 @@ export class EnemyFactory {
       height: 32,
       offset: { x: -16, y: -16 }, // Center the collision box
     }, {
+      layer: 2, // Enemy is on layer 2 (player is on layer 1)
       isTrigger: false,
     });
     enemy.addComponent(collider);

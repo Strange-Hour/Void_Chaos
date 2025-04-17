@@ -79,6 +79,13 @@ export class CharacterController extends Component {
   }
 
   /**
+   * Get the configuration object
+   */
+  getConfig(): CharacterControllerConfig {
+    return { ...this.config };
+  }
+
+  /**
    * Update the physics state
    */
   updatePhysics(deltaTime: number): void {

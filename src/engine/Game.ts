@@ -1,6 +1,8 @@
 import { Canvas } from './Canvas';
 import { Entity } from './ecs/Entity';
 import { System } from './ecs/System';
+import { CollisionSystem } from './ecs/systems/CollisionSystem';
+import { World } from './ecs/World';
 
 // Re-export from Canvas.ts
 export interface CanvasConfig {
@@ -23,6 +25,13 @@ export interface GameConfig extends CanvasConfig {
 
 /**
  * Main game class that manages the ECS and game loop
+ * 
+ * Core systems:
+ * - Canvas rendering for visual output
+ * - Entity Component System (ECS) for game object management
+ * - Physics/collision detection via CollisionSystem
+ * - Input handling and player control
+ * - Game loop with fixed and variable timesteps
  */
 export class Game {
   // Static property to track the last force redraw time
@@ -34,6 +43,8 @@ export class Game {
   private fixedTimeStep: number;
   private accumulator: number;
   private lastFixedUpdateTime: number;
+  private world: World;
+  private collisionSystem: CollisionSystem | null = null;
 
   constructor(config: GameConfig) {
     this.canvas = new Canvas(config);
@@ -42,6 +53,7 @@ export class Game {
     this.fixedTimeStep = config.fixedTimeStep || 1000 / 60; // Default to 60 FPS for physics
     this.accumulator = 0;
     this.lastFixedUpdateTime = performance.now();
+    this.world = new World();
 
     // Bind the update method to be used as a render callback
     this.update = this.update.bind(this);
@@ -56,10 +68,59 @@ export class Game {
   }
 
   /**
+   * Get the world instance
+   */
+  getWorld(): World {
+    return this.world;
+  }
+
+  /**
+   * Initialize and add a collision system to the game
+   * @returns The created collision system
+   */
+  initializeCollisionSystem(): CollisionSystem {
+    if (this.collisionSystem) {
+      console.log('Collision system already initialized, returning existing instance');
+      return this.collisionSystem;
+    }
+
+    console.log('Initializing collision system...');
+
+    // Create a new collision system
+    this.collisionSystem = new CollisionSystem(this.world);
+
+    // Add it to the game systems
+    this.addSystem(this.collisionSystem);
+
+    // Set up default layer collisions if needed
+    // Enable all layers to collide by default (layers 0-10)
+    for (let i = 0; i < 10; i++) {
+      for (let j = i; j < 10; j++) {
+        this.collisionSystem.setLayerCollision(i, j, true);
+      }
+    }
+
+    console.log('Collision system initialized and added to game systems');
+    console.log(`Total entities in world: ${this.world.getEntities().length}`);
+    console.log(`Total systems in game: ${this.systems.length}`);
+
+    return this.collisionSystem;
+  }
+
+  /**
+   * Get the collision system if it exists
+   */
+  getCollisionSystem(): CollisionSystem | null {
+    return this.collisionSystem;
+  }
+
+  /**
    * Add an entity to the game
    */
   addEntity(entity: Entity): void {
     this.entities.set(entity.getId(), entity);
+    // Add entity to world
+    this.world.addEntity(entity);
     // Add entity to all systems
     this.systems.forEach(system => {
       system.addEntity(entity);
@@ -71,6 +132,8 @@ export class Game {
    */
   removeEntity(entity: Entity): void {
     this.entities.delete(entity.getId());
+    // Remove entity from world
+    this.world.removeEntity(entity);
     // Remove entity from all systems
     this.systems.forEach(system => {
       system.removeEntity(entity);
@@ -158,6 +221,7 @@ export class Game {
 
   /**
    * Fixed timestep update for physics and game logic
+   * CollisionSystem is typically updated during this phase
    */
   private fixedUpdate(deltaTime: number): void {
     // Update all systems that require fixed timestep
