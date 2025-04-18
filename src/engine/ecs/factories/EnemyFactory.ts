@@ -88,7 +88,7 @@ export class EnemyFactory {
       console.warn(`No sprite found for enemy type: ${typeId}`);
     }
     const renderer = new Renderer(sprite || new Sprite({
-      url: '/sprites/enemy-basic',
+      url: '/sprites/enemy-basic.svg',
       width: 32,
       height: 32
     }));

@@ -451,7 +451,8 @@ export class Canvas {
       '/sprites/player.svg',
       '/sprites/enemy-basic.svg',
       '/sprites/enemy-flanker.svg',
-      '/sprites/enemy-ranged.svg'
+      '/sprites/enemy-ranged.svg',
+      '/sprites/enemy-bomber.svg'
     ];
 
     // Create and load all images

@@ -180,6 +180,7 @@ export class SpriteManager {
       { url: '/sprites/enemy-basic', width: 32, height: 32 },
       { url: '/sprites/enemy-flanker', width: 32, height: 32 },
       { url: '/sprites/enemy-ranged', width: 32, height: 32 },
+      { url: '/sprites/enemy-bomber', width: 32, height: 32 },
     ];
 
     // Create sprite instances
@@ -203,12 +204,14 @@ export class SpriteManager {
         if (process.env.NODE_ENV !== 'production') {
           console.log('Essential sprites preloaded successfully');
         }
-        return Promise.resolve();
+
+        // After preloading essential sprites, load enemy sprites and register them with the EnemyFactory
+        return this.preloadEnemySprites().then(() => Promise.resolve());
       })
       .catch(err => {
         console.error('Error during sprite preloading:', err);
-        // Continue despite errors
-        return Promise.resolve();
+        // Try preloading enemy sprites anyway
+        return this.preloadEnemySprites().then(() => Promise.resolve());
       });
   }
 
@@ -225,7 +228,7 @@ export class SpriteManager {
 
     const loadPromises = enemyTypes.map(async enemyType => {
       const sprite = new Sprite({
-        url: `/sprites/enemy-${enemyType.id}`,
+        url: `/sprites/enemy-${enemyType.id}.svg`,
         width: 32,
         height: 32
       });

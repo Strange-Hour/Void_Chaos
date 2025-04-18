@@ -31,6 +31,9 @@ function createSvgSprite(name, color, shape) {
   } else if (shape === "circle") {
     // Ranged enemy is a circle
     svgContent += `<circle cx="16" cy="16" r="10" fill="${color}" />`;
+  } else if (shape === "pentagon") {
+    // Bomber enemy is a pentagon
+    svgContent += `<polygon points="16,6 26,14 22,26 10,26 6,14" fill="${color}" />`;
   }
 
   svgContent += `</svg>`;
@@ -47,6 +50,7 @@ createSvgSprite("player", "#00ff00", "triangle"); // Green player
 createSvgSprite("enemy-basic", "#ff0000", "square"); // Red basic enemy
 createSvgSprite("enemy-flanker", "#ff00ff", "diamond"); // Magenta flanker enemy
 createSvgSprite("enemy-ranged", "#ffff00", "circle"); // Yellow ranged enemy
+createSvgSprite("enemy-bomber", "#ff9900", "pentagon"); // Orange bomber enemy
 
 // Remove invalid PNG files
 try {
@@ -54,6 +58,7 @@ try {
   fs.unlinkSync(path.join(spritesDir, "enemy-basic.png"));
   fs.unlinkSync(path.join(spritesDir, "enemy-flanker.png"));
   fs.unlinkSync(path.join(spritesDir, "enemy-ranged.png"));
+  fs.unlinkSync(path.join(spritesDir, "enemy-bomber.png"));
   console.log("Removed invalid PNG files");
 } catch (err) {
   console.log("Note: Some PNG files may not exist", err.message);
