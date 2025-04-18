@@ -12,7 +12,14 @@ export const RangedEnemy: IEnemyTypeDefinition = {
     scoreValue: 200,
   },
   behavior: {
-    defaultState: 'retreat',
     attackCooldown: 1000,
+
+    movementPatterns: {
+      'keep_distance': { type: 'retreat', targetType: 'player', idealDistance: 350, followThreshold: 500, distanceMargin: 100 },
+      'flee': { type: 'retreat', targetType: 'player', idealDistance: 450, followThreshold: 600, distanceMargin: 50 },
+      'idle': { type: 'idle' }
+    },
+
+    initialPatternId: 'keep_distance',
   }
 }; 

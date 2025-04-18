@@ -9,7 +9,7 @@ import { InputManager } from "@engine/input/InputManager";
 import { KeyboardInputProvider } from "@engine/input/KeyboardInputProvider";
 import { InputSystem } from "@engine/ecs/systems/InputSystem";
 import { RenderSystem } from "@engine/ecs/systems/RenderSystem";
-import { CharacterControllerSystem } from "@engine/ecs/systems/CharacterControllerSystem";
+import { CharacterControllerSystem } from "@/engine/ecs/systems/CharacterControllerSystem";
 import { DebugSystem } from "@engine/ecs/systems/DebugSystem";
 import { AIBehaviorSystem } from "@engine/ecs/systems/AIBehaviorSystem";
 import { WaveSpawnSystem } from "@engine/ecs/systems/WaveSpawnSystem";
@@ -173,10 +173,10 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
 
         // Create and initialize all game systems
         const inputSystem = new InputSystem(inputManager);
-        const renderSystem = new RenderSystem(game.getCanvas());
-        const characterSystem = new CharacterControllerSystem(inputManager);
-        const debugSystem = new DebugSystem(game.getCanvas(), inputManager);
+        const characterSystem = new CharacterControllerSystem(dimensions);
         const aiBehaviorSystem = new AIBehaviorSystem();
+        const renderSystem = new RenderSystem(game.getCanvas());
+        const debugSystem = new DebugSystem(game.getCanvas(), inputManager);
         const waveSpawnSystem = new WaveSpawnSystem(world);
         const collisionSystem = game.initializeCollisionSystem();
 
@@ -227,9 +227,10 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
             spawnDelay: 2000,
             waveDelay: 5000,
           },
-          {
+         {
             enemies: [
-              { typeId: 'basic', count: 8 },
+              { typeId: 'basic', count: 5 },
+              { typeId: 'bomber', count: 4 },
               { typeId: 'flanker', count: 3 },
               { typeId: 'ranged', count: 2 },
             ],

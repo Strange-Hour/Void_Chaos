@@ -1,7 +1,7 @@
 import { Entity } from '@engine/ecs/Entity';
 import { Enemy } from '@engine/ecs/components/Enemy';
 import { Transform } from '@engine/ecs/components/Transform';
-import { AI, AIState } from '@engine/ecs/components/AI';
+import { AI } from '@engine/ecs/components/AI';
 import { Health } from '@engine/ecs/components/Health';
 import { Collider } from '@engine/ecs/components/Collider';
 import { Renderer } from '@engine/ecs/components/Renderer';
@@ -37,38 +37,48 @@ export class EnemyFactory {
     const enemy = new Entity();
     const typeId = options.typeId || 'basic';
 
-    // Add enemy component with type-specific configuration
-    const enemyComponent = new Enemy(typeId);
-    const config = enemyComponent.getConfig();
+    // Get the full definition from the registry
+    const definition = EnemyRegistry.getInstance().getEnemyType(typeId);
+    if (!definition) {
+      console.error(`Failed to create enemy: Type definition not found for ID '${typeId}'`);
+      // Return a minimal entity or throw an error?
+      return enemy; // Returning an empty entity for now
+    }
+
+    // Use definition.config directly
+    const config = definition.config;
+    let effectiveConfig = { ...config }; // Start with base config
 
     // Apply difficulty multiplier if provided
-    if (options.difficultyMultiplier) {
-      const adjustedConfig = {
-        ...config,
+    if (options.difficultyMultiplier && options.difficultyMultiplier !== 1) {
+      effectiveConfig = {
+        ...effectiveConfig,
         health: Math.round(config.health * options.difficultyMultiplier),
         damage: Math.round(config.damage * options.difficultyMultiplier),
         speed: Math.round(config.speed * options.difficultyMultiplier)
       };
-      // Note: We don't need setConfig anymore as config is immutable
     }
 
+    // Add enemy component
+    // Pass the potentially modified config if Enemy component uses it internally
+    const enemyComponent = new Enemy(typeId); // Assuming Enemy constructor only needs typeId
     enemy.addComponent(enemyComponent);
 
-    // Add transform component for position and movement
+    // Add transform component
     const transform = new Transform();
     transform.setPosition(options.position);
     enemy.addComponent(transform);
 
-    // Add character controller for movement and aiming
+    // Add character controller using effective speed
     const controller = new CharacterController({
-      maxSpeed: config.speed,
+      maxSpeed: effectiveConfig.speed, // Use effective speed
       acceleration: 1000,
       deceleration: 800,
     });
     enemy.addComponent(controller);
 
-    // Add health component
-    const health = new Health({ maxHealth: config.health });
+    // Add health component using effective health
+    const health = new Health({ maxHealth: effectiveConfig.health }); // Use effective health
     enemy.addComponent(health);
 
     // Add collider component
@@ -82,22 +92,30 @@ export class EnemyFactory {
     });
     enemy.addComponent(collider);
 
-    // Add renderer component if sprite is available
+    // Add renderer component
     const sprite = options.sprite || this.enemySprites[typeId];
     if (!sprite && process.env.NODE_ENV !== 'production') {
       console.warn(`No sprite found for enemy type: ${typeId}`);
     }
     const renderer = new Renderer(sprite || new Sprite({
-      url: '/sprites/enemy-basic.svg',
+      url: '/sprites/enemy-basic.svg', // Fallback sprite
       width: 32,
       height: 32
     }));
     renderer.setVisible(true);
     enemy.addComponent(renderer);
 
-    // Add AI component with appropriate behaviors
+    // Add AI component
     const ai = new AI();
-    ai.setState(enemyComponent.getDefaultState() as AIState);
+
+    // *** Set movement patterns and initial state from definition ***
+    ai.setAvailablePatterns(definition.behavior.movementPatterns);
+    ai.setCurrentPatternId(definition.behavior.initialPatternId);
+
+    // Remove old state setting
+    // ai.setState(enemyComponent.getDefaultState() as AIState);
+
+    // Set initial target if provided
     if (options.aiTarget) {
       ai.setTarget({
         position: { x: options.aiTarget.x, y: options.aiTarget.y },

@@ -1,7 +1,6 @@
 import { Component, Entity } from '../Entity';
 import { Vector2 } from '../../math/Vector2';
-
-export type AIState = 'idle' | 'chase' | 'attack' | 'retreat';
+import { MovementPatternDefinition } from '../ai/patterns/types';
 
 export interface AIBehavior {
   name: string;
@@ -20,14 +19,16 @@ export interface AITarget {
  */
 export class AI extends Component {
   private behaviors: Map<string, AIBehavior>;
-  private currentState: AIState | null;
+  private availablePatterns: Record<string, MovementPatternDefinition>;
+  private currentPatternId: string | null;
   private target: AITarget | null;
   private stateTime: number;
 
   constructor() {
     super();
     this.behaviors = new Map();
-    this.currentState = null;
+    this.availablePatterns = {};
+    this.currentPatternId = null;
     this.target = null;
     this.stateTime = 0;
   }
@@ -58,38 +59,61 @@ export class AI extends Component {
   }
 
   /**
-   * Get the current behavior state
+   * Get the ID of the current movement pattern
    */
-  getCurrentState(): AIState | null {
-    return this.currentState;
+  getCurrentPatternId(): string | null {
+    return this.currentPatternId;
   }
 
   /**
-   * Get time spent in current state
+   * Get the definition object for the current movement pattern
+   */
+  getCurrentPatternDefinition(): MovementPatternDefinition | undefined {
+    return this.currentPatternId ? this.availablePatterns[this.currentPatternId] : undefined;
+  }
+
+  /**
+   * Get time spent in current pattern state
    */
   getStateTime(): number {
     return this.stateTime;
   }
 
   /**
-   * Change to a new behavior state
+   * Set the available movement patterns for this AI.
+   * This is typically done once when the entity is created.
+   * @param patterns A record mapping pattern IDs to their definitions.
    */
-  setState(state: AIState | null): void {
-    if (state === this.currentState) return;
+  setAvailablePatterns(patterns: Record<string, MovementPatternDefinition>): void {
+    this.availablePatterns = patterns;
+  }
 
-    // Exit current state
-    if (this.currentState) {
-      const currentBehavior = this.behaviors.get(this.currentState);
-      currentBehavior?.onExit?.();
+  /**
+   * Get the available movement patterns.
+   */
+  getAvailablePatterns(): Record<string, MovementPatternDefinition> {
+    return this.availablePatterns;
+  }
+
+  /**
+   * Change to a new movement pattern state
+   * @param patternId The ID of the pattern to switch to (must exist in availablePatterns)
+   */
+  setCurrentPatternId(patternId: string | null): void {
+    if (patternId === this.currentPatternId) return;
+
+    if (patternId !== null && !this.availablePatterns[patternId]) {
+      console.warn(`Attempted to set unknown pattern ID: ${patternId}. Available:`, Object.keys(this.availablePatterns));
+      return;
     }
 
-    // Enter new state
-    this.currentState = state;
+    this.currentPatternId = patternId;
     this.stateTime = 0;
 
-    if (state) {
-      const newBehavior = this.behaviors.get(state);
-      newBehavior?.onEnter?.();
+    const newPatternDef = this.getCurrentPatternDefinition();
+    if (newPatternDef?.type === 'idle') {
+      // Consider clearing target on switching to idle, or let AI system handle?
+      // this.setTarget(null); // Example
     }
   }
 
@@ -97,17 +121,13 @@ export class AI extends Component {
    * Set the current target
    */
   setTarget(target: AITarget | null): void {
-    // When setting a new target, preserve the reference 
-    // but ensure we have a deep copy of position data
     if (target) {
       if (!this.target) {
-        // If we don't have a target yet, create a new one with deep-copied position
         this.target = {
           position: { ...target.position },
           entity: target.entity
         };
       } else {
-        // Update existing target's position and entity reference
         this.target.position.x = target.position.x;
         this.target.position.y = target.position.y;
         this.target.entity = target.entity;
@@ -121,8 +141,6 @@ export class AI extends Component {
    * Get the current target
    */
   getTarget(): AITarget | null {
-    // Return the original target reference to maintain consistency
-    // This allows systems to update the target position directly
     return this.target;
   }
 
@@ -130,39 +148,47 @@ export class AI extends Component {
    * Update the AI behavior
    */
   update(deltaTime: number): void {
-    if (this.currentState) {
-      const behavior = this.behaviors.get(this.currentState);
-      if (behavior) {
-        behavior.update(deltaTime);
-      }
-      this.stateTime += deltaTime;
-    }
+    this.stateTime += deltaTime;
   }
 
   serialize(): object {
     return {
-      currentState: this.currentState,
+      currentPatternId: this.currentPatternId,
       stateTime: this.stateTime,
-      target: this.target,
-      behaviors: Array.from(this.behaviors.keys())
+      target: this.target ? { position: { ...this.target.position }, entityId: this.target.entity?.getId() } : null,
+      availablePatterns: this.availablePatterns
     };
   }
 
   deserialize(data: {
-    currentState?: AIState | null;
+    currentPatternId?: string | null;
     stateTime?: number;
-    target?: AITarget | null;
-    behaviors?: string[];
+    target?: { position: Vector2; entityId?: string | number } | null;
+    availablePatterns?: Record<string, MovementPatternDefinition>;
   }): void {
-    if (data.currentState !== undefined) {
-      this.setState(data.currentState);
+    if (data.availablePatterns) {
+      this.setAvailablePatterns(data.availablePatterns);
+    }
+    if (data.currentPatternId !== undefined) {
+      if (data.currentPatternId === null || this.availablePatterns[data.currentPatternId]) {
+        this.setCurrentPatternId(data.currentPatternId);
+      } else {
+        console.warn(`Deserialization: Invalid pattern ID '${data.currentPatternId}' found.`);
+        this.setCurrentPatternId(Object.keys(this.availablePatterns)[0] || null);
+      }
     }
     if (typeof data.stateTime === 'number') {
       this.stateTime = data.stateTime;
     }
     if (data.target !== undefined) {
-      this.setTarget(data.target);
+      if (data.target === null) {
+        this.setTarget(null);
+      } else {
+        this.target = {
+          position: { ...data.target.position },
+          entity: undefined
+        };
+      }
     }
-    // Note: Behaviors need to be re-added manually as they contain functions
   }
 } 

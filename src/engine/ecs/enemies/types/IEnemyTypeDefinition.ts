@@ -1,3 +1,5 @@
+import { MovementPatternDefinition } from '@engine/ecs/ai/patterns/types';
+
 export interface IEnemyTypeDefinition {
   id: string;
   name: string;
@@ -10,8 +12,19 @@ export interface IEnemyTypeDefinition {
     scoreValue: number;
   };
   behavior: {
-    defaultState: string;
     attackCooldown: number;
     // Add any behavior-specific properties here
+
+    /**
+     * A record mapping unique string IDs to the movement pattern definitions
+     * available for this enemy type.
+     */
+    movementPatterns: Record<string, MovementPatternDefinition>;
+
+    /**
+     * The ID of the movement pattern this enemy should start with.
+     * Must be a key in the `movementPatterns` object.
+     */
+    initialPatternId: string;
   };
 } 

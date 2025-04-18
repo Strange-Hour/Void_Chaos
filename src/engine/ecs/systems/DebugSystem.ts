@@ -212,6 +212,9 @@ export class DebugSystem extends System implements IInputEventSubscriber {
               case 'flanker':
                 mainColor = '#ec4899'; // Pink for flanker
                 break;
+              case 'bomber':
+                mainColor = '#f97316'; // Orange for bomber
+                break;
               default:
                 mainColor = '#ef4444'; // Red for basic
             }
@@ -301,12 +304,12 @@ export class DebugSystem extends System implements IInputEventSubscriber {
             let rightY = position.y - dimensions.height / 2;
             if (entity.hasComponent('ai')) {
               const ai = entity.getComponent('ai') as AI;
-              const state = ai.getCurrentState();
+              const patternId = ai.getCurrentPatternId();
               const target = ai.getTarget();
 
               // State badge (right side, starting at entity top)
               this.drawDebugBadge(
-                state,
+                patternId,
                 position.x + horizontalOffset,
                 rightY,
                 mainColor

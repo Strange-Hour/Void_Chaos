@@ -12,7 +12,13 @@ export const FlankerEnemy: IEnemyTypeDefinition = {
     scoreValue: 150,
   },
   behavior: {
-    defaultState: 'chase',
     attackCooldown: 1000,
+
+    movementPatterns: {
+      'flank': { type: 'flank', targetType: 'player', flankWeight: 0.4, idealDistance: 100, distanceMargin: 50 },
+      'chase': { type: 'chase', targetType: 'player' }
+    },
+
+    initialPatternId: 'flank',
   }
 }; 
