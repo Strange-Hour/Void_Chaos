@@ -519,9 +519,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
       if (ai) {
         const target = ai.getTarget();
         if (target && target.entity && target.entity.getId() === playerEntity.getId()) {
-          // Direct update to ensure target position is current
-          target.position.x = playerPosition.x;
-          target.position.y = playerPosition.y;
+          // We only read info here for potential debug display, not modify state.
         }
       }
     });

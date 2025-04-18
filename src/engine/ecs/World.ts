@@ -65,6 +65,12 @@ export class World {
    */
   addSystem(system: System): void {
     this.systems.push(system);
+    // Add existing entities using forEach for broader compatibility
+    this.entities.forEach(entity => {
+      if (system.shouldProcessEntity(entity)) {
+        system.addEntity(entity);
+      }
+    });
   }
 
   /**
@@ -161,6 +167,7 @@ export class World {
 
     // Update all systems
     for (const system of this.systems) {
+      console.log(`World.update: Checking system ${system.constructor.name}`);
       // Give higher priority to AI and Debug systems by ensuring they always update
       // with the most current state, even when delta time is small
       if (system.constructor.name === 'AIBehaviorSystem' ||

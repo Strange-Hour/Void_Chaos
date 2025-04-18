@@ -6,7 +6,6 @@ import { CharacterController } from '@engine/ecs/components/CharacterController'
 import { Vector2 } from '@engine/math/Vector2';
 // Import pattern types
 import {
-  MovementPatternDefinition,
   IChasePattern,
   IRetreatPattern,
   IFlankPattern
@@ -19,35 +18,80 @@ interface AIEntity {
   controller: CharacterController;
 }
 
+interface PlayerEntity {
+  entity: Entity;
+  transform: Transform;
+}
+
 export class AIBehaviorSystem extends System {
   private aiEntities: AIEntity[] = [];
+  private playerEntities: PlayerEntity[] = [];
 
   constructor() {
-    super(['ai', 'transform', 'character-controller']);
+    // Only require transform as it's common to both AI and players
+    super(['transform']);
+  }
+
+  /**
+   * Override addEntity to call the specific onEntityAdded logic.
+   */
+  addEntity(entity: Entity): void {
+    // Call the base class addEntity first
+    super.addEntity(entity);
+
+    // If the entity was successfully added by the base class (i.e., it has the required components)
+    // then call our specific logic.
+    if (this.entities.has(entity)) {
+      this.onEntityAdded(entity);
+    }
+  }
+
+  /**
+   * Override removeEntity to call the specific onEntityRemoved logic.
+   */
+  removeEntity(entity: Entity): void {
+    // Call our specific logic first (before removing from the base set)
+    this.onEntityRemoved(entity);
+    // Then call the base class removeEntity
+    super.removeEntity(entity);
   }
 
   onEntityAdded(entity: Entity): void {
-    this.aiEntities.push({
-      entity,
-      ai: entity.getComponent('ai') as AI,
-      transform: entity.getComponent('transform') as Transform,
-      controller: entity.getComponent('character-controller') as CharacterController
-    });
+    if (entity.hasComponent('ai') &&
+      entity.hasComponent('character-controller')) {
+      this.aiEntities.push({
+        entity,
+        ai: entity.getComponent('ai') as AI,
+        transform: entity.getComponent('transform') as Transform,
+        controller: entity.getComponent('character-controller') as CharacterController
+      });
+    }
+
+    if (entity.hasComponent('player')) {
+      this.playerEntities.push({
+        entity,
+        transform: entity.getComponent('transform') as Transform
+      });
+    }
   }
 
   onEntityRemoved(entity: Entity): void {
     this.aiEntities = this.aiEntities.filter(e => e.entity !== entity);
+    this.playerEntities = this.playerEntities.filter(e => e.entity !== entity);
   }
 
   /**
    * Updates AI targets with fresh player positions using provided player entities
+   * @param players Array of player entities
+   * @param aiEntities Array of AI entities to update
    */
-  private updateAITargetsWithPlayers(players: Entity[]): void {
+  private updateAITargetsWithPlayers(players: Entity[], aiEntities: AIEntity[]): void {
     if (!players.length) return;
 
     // For each AI entity, update its target to the current player position
-    this.aiEntities.forEach(({ ai, transform }) => {
+    aiEntities.forEach(({ entity, ai, transform }) => {
       const target = ai.getTarget();
+
       // Only update if target actually exists
       if (target && target.entity) {
         // Get the current position of the target entity
@@ -59,19 +103,16 @@ export class AIBehaviorSystem extends System {
           const currentPos = targetTransform.getPosition();
 
           // Check if position has actually changed to avoid unnecessary updates
-          if (target.position.x !== currentPos.x || target.position.y !== currentPos.y) {
-            console.log('Updating AI target position:', {
-              from: { x: target.position.x, y: target.position.y },
-              to: { x: currentPos.x, y: currentPos.y },
-              entityId: targetEntity.getId()
-            });
-          }
+          const dx = target.position.x - currentPos.x;
+          const dy = target.position.y - currentPos.y;
+          const squaredDistance = dx * dx + dy * dy;
+          const MIN_UPDATE_DIST_SQ = 0.1 * 0.1; // Update if moved more than 0.1 pixels
 
-          // Directly update the target position without creating a new target object
-          target.position.x = currentPos.x;
-          target.position.y = currentPos.y;
-          // Re-apply the updated target
-          ai.setTarget(target);
+          if (squaredDistance > MIN_UPDATE_DIST_SQ) {
+            // Directly update the target position without creating a new target object
+            target.position.x = currentPos.x;
+            target.position.y = currentPos.y;
+          }
         }
       } else if (players.length > 0) {
         // If no target set yet but players exist, target closest player
@@ -96,10 +137,6 @@ export class AIBehaviorSystem extends System {
         const closestPlayerTransform = closestPlayer.getComponent('transform') as Transform;
         if (closestPlayerTransform) {
           const playerPos = closestPlayerTransform.getPosition();
-          console.log('Setting new AI target to player:', {
-            position: { x: playerPos.x, y: playerPos.y },
-            entityId: closestPlayer.getId()
-          });
           ai.setTarget({
             position: { x: playerPos.x, y: playerPos.y },
             entity: closestPlayer
@@ -109,54 +146,67 @@ export class AIBehaviorSystem extends System {
     });
   }
 
-  update(deltaTime: number): void {
-    const players: Entity[] = Array.from(this.entities).filter(entity =>
-      entity.hasComponent('player') && entity.hasComponent('transform')
-    );
+  fixedUpdate(deltaTime: number): void {
+    const dtMillis = deltaTime * 1000;
 
-    // Update targets if players exist
-    if (players.length > 0) {
-      this.updateAITargetsWithPlayers(players);
+    if (this.playerEntities.length === 0) {
+      this.aiEntities.forEach(({ controller }) => controller.setMoveDirection({ x: 0, y: 0 }));
+      return;
     }
 
-    // Simplified loop - target update happens above now
-    this.aiEntities.forEach(({ ai, transform, controller }) => {
-      const target = ai.getTarget();
+    const activePlayer = this.playerEntities[0];
+    const playerPosition = activePlayer.transform.getPosition();
+
+    this.aiEntities.forEach(({ entity, ai, transform, controller }) => {
+      let target = ai.getTarget();
+      let targetPosition: Vector2 | null = null;
+
+      if (!target || !target.entity || target.entity.getId() !== activePlayer.entity.getId()) {
+        target = { position: { ...playerPosition }, entity: activePlayer.entity };
+        ai.setTarget(target);
+      } else {
+        const storedTargetPos = target.position;
+        const dx = storedTargetPos.x - playerPosition.x;
+        const dy = storedTargetPos.y - playerPosition.y;
+        const squaredDistance = dx * dx + dy * dy;
+        const MIN_UPDATE_DIST_SQ = 0.1 * 0.1;
+
+        if (squaredDistance > MIN_UPDATE_DIST_SQ) {
+          storedTargetPos.x = playerPosition.x;
+          storedTargetPos.y = playerPosition.y;
+        }
+      }
+
+      targetPosition = target.position;
       const patternDef = ai.getCurrentPatternDefinition();
 
-      // If no pattern or target is required but missing, default to idle
-      if (!patternDef || (patternDef.targetType === 'player' && !target)) {
-        controller.setMoveDirection({ x: 0, y: 0 }); // Idle
-        controller.setAimDirection({ x: 1, y: 0 }); // Default aim forward
-        ai.update(deltaTime); // Still update AI component internal timers etc.
+      if (!patternDef || (patternDef.targetType === 'player' && !targetPosition)) {
+        controller.setMoveDirection({ x: 0, y: 0 });
+        controller.setAimDirection({ x: 1, y: 0 });
+        ai.update(dtMillis);
         return;
       }
 
-      // Calculate position, distance, direction (only if needed)
       const position = transform.getPosition();
       let distanceToTarget = 0;
-      let directionToTarget: Vector2 = { x: 1, y: 0 }; // Default direction
-      let targetPosition: Vector2 | null = null;
+      let directionToTarget: Vector2 = { x: 1, y: 0 };
 
-      if (target && patternDef.targetType === 'player') {
-        targetPosition = target.position;
+      if (targetPosition && patternDef.targetType === 'player') {
         distanceToTarget = this.getDistance(position, targetPosition);
         directionToTarget = this.getDirection(position, targetPosition);
       }
 
-      // Apply movement based on the current pattern type
       switch (patternDef.type) {
         case 'chase':
-          // Cast to specific type for type safety (optional but good practice)
           this.updateChaseState(controller, directionToTarget, patternDef as IChasePattern);
           break;
         case 'flank':
-          if (targetPosition) { // Flank needs a target position
+          if (targetPosition) {
             this.updateFlankState(controller, position, targetPosition, directionToTarget, patternDef as IFlankPattern);
           }
           break;
         case 'retreat':
-          if (targetPosition) { // Retreat needs a target position
+          if (targetPosition) {
             this.updateKeepDistanceState(controller, distanceToTarget, directionToTarget, patternDef as IRetreatPattern);
           }
           break;
@@ -166,26 +216,23 @@ export class AIBehaviorSystem extends System {
           break;
       }
 
-      // Aiming logic (keep aiming at target if one exists)
       if (targetPosition) {
         controller.setAimDirection(directionToTarget);
-      } else {
-        // What should idle enemies aim at? Keep current or default?
-        // controller.setAimDirection({ x: 1, y: 0 }); // Example: Default forward
       }
 
-      // Update AI component (e.g., timers, internal state)
-      ai.update(deltaTime);
+      ai.update(dtMillis);
     });
+  }
+
+  update(deltaTime: number): void {
+    // No-op, main logic in fixedUpdate
   }
 
   private updateChaseState(
     controller: CharacterController,
     directionToTarget: Vector2,
-    patternDef: IChasePattern // Accept pattern definition
+    patternDef: IChasePattern
   ): void {
-    // Simple chase behavior - move directly towards target
-    // Could use patternDef parameters later (e.g., stopDistance)
     controller.setMoveDirection(directionToTarget);
   }
 
@@ -194,12 +241,9 @@ export class AIBehaviorSystem extends System {
     position: Vector2,
     targetPosition: Vector2,
     directionToTarget: Vector2,
-    patternDef: IFlankPattern // Accept pattern definition
+    patternDef: IFlankPattern
   ): void {
-    // Use parameters from pattern definition
-    const flankWeight = patternDef.flankWeight ?? 0.3; // Default if not specified
-    // idealDistance and distanceMargin could be used here too if needed
-
+    const flankWeight = patternDef.flankWeight ?? 0.3;
     const perpendicularDir = { x: -directionToTarget.y, y: directionToTarget.x };
     const dotProduct = (position.x - targetPosition.x) * perpendicularDir.x +
       (position.y - targetPosition.y) * perpendicularDir.y;
@@ -209,7 +253,6 @@ export class AIBehaviorSystem extends System {
       perpendicularDir.y = -perpendicularDir.y;
     }
 
-    // Combine flanking and approach directions using flankWeight
     const approachWeight = 1 - flankWeight;
     const moveDirection = {
       x: approachWeight * directionToTarget.x + flankWeight * perpendicularDir.x,
@@ -217,7 +260,7 @@ export class AIBehaviorSystem extends System {
     };
 
     const magnitude = Math.sqrt(moveDirection.x * moveDirection.x + moveDirection.y * moveDirection.y);
-    if (magnitude > 0) { // Avoid division by zero
+    if (magnitude > 0) {
       moveDirection.x /= magnitude;
       moveDirection.y /= magnitude;
     }
@@ -229,30 +272,20 @@ export class AIBehaviorSystem extends System {
     controller: CharacterController,
     distanceToTarget: number,
     directionToTarget: Vector2,
-    patternDef: IRetreatPattern // Accept pattern definition
+    patternDef: IRetreatPattern
   ): void {
-    // Use parameters from pattern definition
     const optimalDistance = patternDef.idealDistance;
     const followThreshold = patternDef.followThreshold;
-    // Use provided margin or a default
     const distanceMargin = patternDef.distanceMargin ?? 50;
 
     if (distanceToTarget < optimalDistance - distanceMargin) {
-      // Too close, move away
       controller.setMoveDirection({ x: -directionToTarget.x, y: -directionToTarget.y });
     } else if (distanceToTarget > followThreshold) {
-      // Too far (beyond follow threshold), move closer
       controller.setMoveDirection(directionToTarget);
     } else if (distanceToTarget > optimalDistance + distanceMargin) {
-      // Within follow range but further than ideal+margin, gently move closer or strafe?
-      // Original code strafed here if within optimal range, now we only retreat if too close.
-      // Let's move closer if outside ideal range but within followThreshold.
       controller.setMoveDirection(directionToTarget);
     } else {
-      // Within optimal range (idealDistance +/- distanceMargin), stop or strafe
-      // Let's strafe for now
       controller.setMoveDirection({ x: -directionToTarget.y, y: directionToTarget.x });
-      // Alternatively, stop moving: controller.setMoveDirection({ x: 0, y: 0 });
     }
   }
 
@@ -267,7 +300,7 @@ export class AIBehaviorSystem extends System {
     const dy = to.y - from.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance === 0) return { x: 1, y: 0 }; // Default direction if overlapping
+    if (distance === 0) return { x: 1, y: 0 };
 
     return {
       x: dx / distance,
