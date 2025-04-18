@@ -175,7 +175,21 @@ export class KeyboardInputProvider implements IInputProvider {
    */
   private handleKeyDown = (event: KeyboardEvent): void => {
     const key = event.key;
-    console.log('Key Down:', { key, pressedKeys: Array.from(this.pressedKeys) });
+
+    // Check if the key is mapped to any action
+    const isMappedKey = Object.values(this.keyMappings).some(mapping => {
+      if (Array.isArray(mapping)) {
+        return mapping.includes(key);
+      } else if (typeof mapping === 'object') {
+        return Object.values(mapping).some(keys => keys.includes(key));
+      }
+      return false;
+    });
+
+    // Prevent default browser behavior for mapped keys
+    if (isMappedKey) {
+      event.preventDefault();
+    }
 
     // Handle key to ensure it's registered
     if (!this.pressedKeys.has(key)) {
@@ -193,7 +207,6 @@ export class KeyboardInputProvider implements IInputProvider {
    */
   private handleKeyUp = (event: KeyboardEvent): void => {
     const key = event.key;
-    console.log('Key Up:', { key, pressedKeys: Array.from(this.pressedKeys) });
 
     this.pressedKeys.delete(key);
     this.justReleasedKeys.add(key);
