@@ -173,13 +173,7 @@ export class CharacterController extends Component {
    * Applies screen boundary constraints to keep entity within visible area
    */
   applyScreenBoundaries(position: Vector2, canvasWidth: number, canvasHeight: number): Vector2 {
-    // Add padding to keep entities visible
-    const padding = 20;
-
-    // Constrain x and y coordinates
-    const boundedX = Math.max(padding, Math.min(canvasWidth - padding, position.x));
-    const boundedY = Math.max(padding, Math.min(canvasHeight - padding, position.y));
-
-    return { x: boundedX, y: boundedY };
+    // Return position as is - boundaries are now handled by CollisionSystem
+    return { ...position };
   }
 } 

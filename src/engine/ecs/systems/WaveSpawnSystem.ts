@@ -1,14 +1,14 @@
 import { System } from '../System';
 import { Entity } from '../Entity';
 import { EnemyFactory, EnemySpawnOptions } from '../factories/EnemyFactory';
-import { EnemyType } from '../components/Enemy';
 import { Vector2 } from '@engine/math/Vector2';
 import { Transform } from '../components/Transform';
 import { World } from '@engine/ecs/World';
+import { EnemyRegistry } from '../enemies/EnemyRegistry';
 
 export interface WaveConfig {
   enemies: {
-    type: EnemyType;
+    typeId: string;  // Changed from type: EnemyType
     count: number;
   }[];
   spawnDelay: number;  // Delay between spawning each enemy in ms
@@ -19,15 +19,15 @@ export interface WaveConfig {
 export interface Boundary {
   width: number;
   height: number;
-  padding?: number; // Optional padding from the edges
+  padding: number;
 }
 
 export interface DifficultyConfig {
-  baseHealth: number;      // Base health multiplier
-  baseDamage: number;      // Base damage multiplier
-  baseSpeed: number;       // Base speed multiplier
-  waveScaling: number;     // How much difficulty increases per wave
-  playerScaling: number;   // How much difficulty increases per additional player
+  baseHealth: number;
+  baseDamage: number;
+  baseSpeed: number;
+  waveScaling: number;    // 10% increase per wave
+  playerScaling: number;   // 30% increase per additional player
 }
 
 /**
@@ -36,7 +36,7 @@ export interface DifficultyConfig {
 export class WaveSpawnSystem extends System {
   private waves: WaveConfig[];
   private currentWave: number;
-  private enemiesRemaining: { type: EnemyType; count: number }[];
+  private enemiesRemaining: { typeId: string; count: number }[];
   private lastSpawnTime: number;
   private waveStartTime: number;
   private isWaveActive: boolean;
@@ -63,20 +63,29 @@ export class WaveSpawnSystem extends System {
       baseHealth: 1,
       baseDamage: 1,
       baseSpeed: 1,
-      waveScaling: 0.1,    // 10% increase per wave
-      playerScaling: 0.3,   // 30% increase per additional player
+      waveScaling: 0.1,
+      playerScaling: 0.3,
     };
   }
 
   /**
    * Configure the wave spawning system with wave definitions and boundary
    */
-  configure(waves: WaveConfig[], boundary: Boundary, difficultyConfig?: Partial<DifficultyConfig>): void {
+  configure(waves: WaveConfig[], boundary: Boundary, difficultyConfig: DifficultyConfig): void {
     this.waves = waves;
-    this.boundary = { ...boundary, padding: boundary.padding ?? 50 };
-    if (difficultyConfig) {
-      this.difficultyConfig = { ...this.difficultyConfig, ...difficultyConfig };
-    }
+    this.boundary = boundary;
+    this.difficultyConfig = difficultyConfig;
+
+    // Validate enemy types exist in registry
+    const registry = EnemyRegistry.getInstance();
+    waves.forEach(wave => {
+      wave.enemies.forEach(enemy => {
+        if (!registry.getEnemyType(enemy.typeId)) {
+          console.warn(`Enemy type '${enemy.typeId}' not found in registry. Wave configuration may fail.`);
+        }
+      });
+    });
+
     this.reset();
   }
 
@@ -133,7 +142,7 @@ export class WaveSpawnSystem extends System {
    */
   private getRandomBoundaryPosition(side?: 'top' | 'right' | 'bottom' | 'left'): Vector2 {
     const { width, height, padding } = this.boundary;
-    const p = padding!;
+    const p = padding;
 
     // If no side specified, choose one randomly
     if (!side) {
@@ -240,7 +249,7 @@ export class WaveSpawnSystem extends System {
       const enemyGroup = this.enemiesRemaining.find(group => group.count > 0);
       if (enemyGroup) {
         const spawnPosition = this.getSpawnPosition();
-        this.spawnEnemy(enemyGroup.type, spawnPosition);
+        this.spawnEnemy(enemyGroup.typeId, spawnPosition);
         enemyGroup.count--;
 
         // Add a small random variation to spawn timing based on deltaTime
@@ -258,13 +267,13 @@ export class WaveSpawnSystem extends System {
   /**
    * Spawn an enemy with current difficulty multiplier applied
    */
-  private spawnEnemy(type: EnemyType, position: Vector2): void {
+  private spawnEnemy(typeId: string, position: Vector2): void {
     // Find a valid spawn position that doesn't overlap with existing entities
-    const validPosition = this.findValidSpawnPosition(position, type);
+    const validPosition = this.findValidSpawnPosition(position, typeId);
 
     const spawnOptions: EnemySpawnOptions = {
-      position: validPosition, // Use verified position
-      type,
+      position: validPosition,
+      typeId,
       difficultyMultiplier: this.currentDifficultyMultiplier
     };
 
@@ -286,11 +295,8 @@ export class WaveSpawnSystem extends System {
     const enemy = EnemyFactory.createEnemy(spawnOptions);
     this.world.addEntity(enemy);
 
-    // Process entity changes immediately to ensure enemy is registered before render
-    this.world.processEntityChanges();
-
     if (this.debug) {
-      console.log(`Spawned ${type} enemy at position (${validPosition.x.toFixed(1)}, ${validPosition.y.toFixed(1)})`);
+      console.log(`Spawned ${typeId} enemy at position (${validPosition.x.toFixed(1)}, ${validPosition.y.toFixed(1)})`);
     }
   }
 
@@ -300,7 +306,7 @@ export class WaveSpawnSystem extends System {
    * @param enemyType The type of enemy to spawn
    * @returns A valid position that doesn't overlap with other entities
    */
-  private findValidSpawnPosition(initialPosition: Vector2, enemyType: EnemyType): Vector2 {
+  private findValidSpawnPosition(initialPosition: Vector2, enemyType: string): Vector2 {
     // Set parameters for spawn position search
     const maxAttempts = 10;
     const minDistance = 60; // Minimum distance between entities (larger than collision boxes)
@@ -314,22 +320,22 @@ export class WaveSpawnSystem extends System {
     // If the initial position is not valid, try alternative positions
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       // On each attempt, try a position further from the edge
-      const distanceFromEdge = this.boundary.padding! + (attempt * 20);
+      const distanceFromEdge = this.boundary.padding + (attempt * 20);
       const { width, height } = this.boundary;
 
       // Try different sides based on the enemy type for better distribution
       let side: 'top' | 'right' | 'bottom' | 'left';
 
       switch (enemyType) {
-        case EnemyType.Basic:
+        case 'Basic':
           // Basic enemies prefer top and bottom
           side = Math.random() < 0.5 ? 'top' : 'bottom';
           break;
-        case EnemyType.Flanker:
+        case 'Flanker':
           // Flankers prefer sides
           side = Math.random() < 0.5 ? 'left' : 'right';
           break;
-        case EnemyType.Ranged:
+        case 'Ranged':
           // Ranged enemies can be anywhere
           side = ['top', 'right', 'bottom', 'left'][Math.floor(Math.random() * 4)] as 'top' | 'right' | 'bottom' | 'left';
           break;
@@ -384,8 +390,8 @@ export class WaveSpawnSystem extends System {
     };
 
     // Ensure position is within boundaries
-    fallbackPosition.x = Math.max(this.boundary.padding!, Math.min(this.boundary.width - this.boundary.padding!, fallbackPosition.x));
-    fallbackPosition.y = Math.max(this.boundary.padding!, Math.min(this.boundary.height - this.boundary.padding!, fallbackPosition.y));
+    fallbackPosition.x = Math.max(this.boundary.padding, Math.min(this.boundary.width - this.boundary.padding, fallbackPosition.x));
+    fallbackPosition.y = Math.max(this.boundary.padding, Math.min(this.boundary.height - this.boundary.padding, fallbackPosition.y));
 
     if (this.debug) {
       console.log(`Using fallback spawn position after ${maxAttempts} failed attempts`);

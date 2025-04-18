@@ -1,8 +1,9 @@
 import { System } from '../System';
+import { Entity } from '../Entity';
 import { Transform } from '../components/Transform';
 import { Renderer } from '../components/Renderer';
 import { Canvas } from '../../Canvas';
-import { Entity } from '../Entity';
+import { LayerName, getLayerLevel } from '@/config';
 
 export class RenderSystem extends System {
   private canvas: Canvas;
@@ -12,41 +13,25 @@ export class RenderSystem extends System {
     super(['transform', 'renderer']);
     this.canvas = canvas;
 
-    // Check if game layer already exists
-    let layer = this.canvas.getLayer('game');
-
-    // Only create the layer if it doesn't exist
+    // Create game layer using configuration
+    const layer = this.canvas.createLayer(LayerName.Game, {
+      zIndex: getLayerLevel(LayerName.Game)
+    });
     if (!layer) {
-      console.log('Game layer not found, creating new one');
-      layer = this.canvas.createLayer('game', { zIndex: 1 });
-    } else {
-      console.log('Using existing game layer');
+      throw new Error('Failed to create game layer');
     }
-
-    if (!layer) {
-      throw new Error('Failed to get or create game layer');
-    }
-
-    // Ensure the layer is properly set up
-    layer.setVisible(true);
-    const layerCanvas = layer.getCanvas();
-    layerCanvas.style.display = 'block';
-    layerCanvas.style.position = 'absolute';
-    layerCanvas.style.top = '0';
-    layerCanvas.style.left = '0';
-
     this.gameLayer = layer.getContext();
 
     // Verify canvas dimensions
     console.log('Game layer canvas dimensions:', {
-      canvas: layerCanvas,
-      width: layerCanvas.width,
-      height: layerCanvas.height,
+      canvas: layer.getCanvas(),
+      width: layer.getCanvas().width,
+      height: layer.getCanvas().height,
       style: {
-        width: layerCanvas.style.width,
-        height: layerCanvas.style.height,
-        display: layerCanvas.style.display,
-        position: layerCanvas.style.position,
+        width: layer.getCanvas().style.width,
+        height: layer.getCanvas().style.height,
+        display: layer.getCanvas().style.display,
+        position: layer.getCanvas().style.position,
       }
     });
 

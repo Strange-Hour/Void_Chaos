@@ -3,135 +3,83 @@
  * Represents a single canvas layer for rendering different types of content
  */
 
+import { LayerName } from '@/config';
+
 export interface LayerConfig {
-  width: number;
-  height: number;
+  name: LayerName;
   zIndex: number;
-  pixelRatio?: number;
   isVisible?: boolean;
 }
 
 export class Layer {
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private width: number;
-  private height: number;
-  private pixelRatio: number;
+  private context: CanvasRenderingContext2D;
+  private name: LayerName;
   private zIndex: number;
   private isVisible: boolean;
 
   constructor(config: LayerConfig) {
-    this.width = config.width;
-    this.height = config.height;
+    this.name = config.name;
     this.zIndex = config.zIndex;
-    this.pixelRatio = config.pixelRatio || window.devicePixelRatio || 1;
     this.isVisible = config.isVisible ?? true;
 
-    // Create canvas element
     this.canvas = document.createElement('canvas');
-    this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
 
-    if (!this.ctx) {
-      throw new Error('Failed to get 2D rendering context for layer');
-    }
-
-    // Setup canvas
-    this.setupCanvas();
-    this.updateStyle();
-  }
-
-  /**
-   * Sets up the canvas with proper scaling and size
-   */
-  private setupCanvas(): void {
-    // Set canvas size accounting for pixel ratio
-    this.canvas.width = this.width * this.pixelRatio;
-    this.canvas.height = this.height * this.pixelRatio;
-
-    // Scale canvas CSS dimensions for proper display
-    this.canvas.style.width = `${this.width}px`;
-    this.canvas.style.height = `${this.height}px`;
-
-    // Scale the context to account for pixel ratio
-    this.ctx.scale(this.pixelRatio, this.pixelRatio);
-  }
-
-  /**
-   * Updates the canvas element style based on layer properties
-   */
-  private updateStyle(): void {
+    // Set up canvas styling
     this.canvas.style.position = 'absolute';
-    this.canvas.style.zIndex = this.zIndex.toString();
+    this.canvas.style.top = '0';
+    this.canvas.style.left = '0';
     this.canvas.style.display = this.isVisible ? 'block' : 'none';
+    this.canvas.style.zIndex = this.zIndex.toString();
+
+    const context = this.canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Failed to get canvas context');
+    }
+    this.context = context;
+
+    // Enable image smoothing for better visual quality
+    this.context.imageSmoothingEnabled = true;
   }
 
-  /**
-   * Clears the entire layer
-   */
-  public clear(): void {
-    this.ctx.clearRect(0, 0, this.width, this.height);
+  public setDimensions(width: number, height: number, scale: number = 1): void {
+    this.canvas.width = width * scale;
+    this.canvas.height = height * scale;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
   }
 
-  /**
-   * Gets the layer's rendering context
-   */
-  public getContext(): CanvasRenderingContext2D {
-    return this.ctx;
+  public getName(): LayerName {
+    return this.name;
   }
 
-  /**
-   * Gets the layer's canvas element
-   */
-  public getCanvas(): HTMLCanvasElement {
-    return this.canvas;
-  }
-
-  /**
-   * Sets the visibility of the layer
-   */
-  public setVisible(visible: boolean): void {
-    this.isVisible = visible;
-    this.canvas.style.display = visible ? 'block' : 'none';
-  }
-
-  /**
-   * Gets the current visibility state
-   */
-  public isLayerVisible(): boolean {
-    return this.isVisible;
-  }
-
-  /**
-   * Gets the layer's z-index
-   */
   public getZIndex(): number {
     return this.zIndex;
   }
 
-  /**
-   * Sets the layer's z-index
-   */
   public setZIndex(zIndex: number): void {
     this.zIndex = zIndex;
     this.canvas.style.zIndex = zIndex.toString();
   }
 
-  /**
-   * Gets the layer dimensions
-   */
-  public getDimensions(): { width: number; height: number } {
-    return {
-      width: this.width,
-      height: this.height
-    };
+  public isLayerVisible(): boolean {
+    return this.isVisible;
   }
 
-  /**
-   * Resizes the layer
-   */
-  public resize(width: number, height: number): void {
-    this.width = width;
-    this.height = height;
-    this.setupCanvas();
+  public setVisible(visible: boolean): void {
+    this.isVisible = visible;
+    this.canvas.style.display = visible ? 'block' : 'none';
+  }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  public getContext(): CanvasRenderingContext2D {
+    return this.context;
+  }
+
+  public clear(): void {
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 } 

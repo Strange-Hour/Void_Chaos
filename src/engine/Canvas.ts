@@ -6,6 +6,7 @@
 import { Layer, LayerConfig } from './Layer';
 import { Camera, CameraConfig } from './Camera';
 import { SpriteManager } from './SpriteManager';
+import { LayerName, getLayerLevel, getLayerConfig } from '@/config';
 
 interface CanvasConfig {
   width: number;
@@ -27,81 +28,104 @@ interface RenderStats {
 type RenderCallback = (deltaTime: number) => void;
 
 export class Canvas {
-  private container: HTMLElement | null;
-  private pixelRatio: number;
-  private width: number;
-  private height: number;
-  private backgroundColor: string;
-  private layers: Map<string, Layer>;
+  private container: HTMLElement | null = null;
+  private pixelRatio: number = 1;
+  private width: number = 0;
+  private height: number = 0;
+  private backgroundColor: string = '#000000';
+  private layers: Map<string, Layer> = new Map();
   private containerElement: HTMLDivElement;
   private camera: Camera;
-  private isRunning: boolean;
-  private lastFrameTime: number;
-  private animationFrameId: number;
-  private renderCallbacks: Set<RenderCallback>;
-  private targetFPS: number;
-  private minFrameTime: number;
-  private renderStats: RenderStats;
+  private isRunning: boolean = false;
+  private lastFrameTime: number = 0;
+  private animationFrameId: number = 0;
+  private renderCallbacks: Set<RenderCallback> = new Set();
+  private targetFPS: number = 60;
+  private minFrameTime: number = 1000 / 60;
+  private renderStats: RenderStats = {
+    fps: 0,
+    frameTime: 0,
+    frameCount: 0,
+    lastFpsUpdate: 0
+  };
   private spriteManager: SpriteManager;
+  private scale: number = 1;
 
   constructor(config: CanvasConfig) {
+    // Initialize required properties that need complex setup
+    this.containerElement = document.createElement('div');
+    this.camera = new Camera({
+      width: 0,
+      height: 0
+    });
+    this.spriteManager = new SpriteManager();
+
+    // Guard against server-side rendering
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Client-side initialization
     this.width = config.width;
     this.height = config.height;
     this.pixelRatio = config.pixelRatio || window.devicePixelRatio || 1;
     this.backgroundColor = config.backgroundColor || '#000000';
-    this.layers = new Map();
-    this.isRunning = false;
-    this.lastFrameTime = 0;
-    this.animationFrameId = 0;
-    this.renderCallbacks = new Set();
     this.targetFPS = config.targetFPS || 60;
     this.minFrameTime = 1000 / this.targetFPS;
-    this.renderStats = {
-      fps: 0,
-      frameTime: 0,
-      frameCount: 0,
-      lastFpsUpdate: 0
+    this.scale = this.pixelRatio;
+
+    // Setup container element
+    this.containerElement = document.createElement('div');
+    this.containerElement.style.position = 'absolute';
+    this.containerElement.style.width = '100%';
+    this.containerElement.style.height = '100%';
+    this.containerElement.style.backgroundColor = this.backgroundColor;
+    this.containerElement.style.overflow = 'hidden';
+    this.containerElement.style.top = '0';
+    this.containerElement.style.left = '0';
+
+    // Setup container with retry
+    const maxRetries = 10;
+    const retryInterval = 100; // ms
+    let retryCount = 0;
+
+    const trySetupContainer = () => {
+      if (config.containerId) {
+        this.container = document.getElementById(config.containerId);
+        if (!this.container) {
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Waiting for container ${config.containerId}, attempt ${retryCount}/${maxRetries}`);
+            setTimeout(trySetupContainer, retryInterval);
+            return;
+          }
+          throw new Error(`Container with id "${config.containerId}" not found after ${maxRetries} attempts`);
+        }
+        this.container.appendChild(this.containerElement);
+      } else {
+        document.body.appendChild(this.containerElement);
+        this.container = document.body;
+      }
+
+      // Initialize camera with actual dimensions
+      this.camera = new Camera({
+        width: this.width,
+        height: this.height,
+        ...config.camera
+      });
+
+      // Create default background layer
+      this.createLayer(LayerName.Background, { zIndex: getLayerLevel(LayerName.Background) });
+
+      // Initialize sprite manager
+      this.spriteManager = new SpriteManager();
+
+      this.handleResize = this.handleResize.bind(this);
+      this.renderLoop = this.renderLoop.bind(this);
+      window.addEventListener('resize', this.handleResize);
     };
 
-    // Create container element
-    this.containerElement = document.createElement('div');
-    this.containerElement.style.position = 'relative';
-    this.containerElement.style.width = `${this.width}px`;
-    this.containerElement.style.height = `${this.height}px`;
-    this.containerElement.style.backgroundColor = this.backgroundColor;
-    this.containerElement.style.overflow = 'hidden'; // Ensure content doesn't overflow
-
-    // Debug style to make sure container is visible
-    this.containerElement.style.border = '2px solid red';
-
-    // Setup container
-    if (config.containerId) {
-      this.container = document.getElementById(config.containerId);
-      if (!this.container) {
-        throw new Error(`Container with id "${config.containerId}" not found`);
-      }
-      this.container.appendChild(this.containerElement);
-    } else {
-      document.body.appendChild(this.containerElement);
-      this.container = document.body;
-    }
-
-    // Initialize camera
-    this.camera = new Camera({
-      width: this.width,
-      height: this.height,
-      ...config.camera
-    });
-
-    // Create default background layer
-    this.createLayer('background', { zIndex: 0 });
-
-    // Initialize sprite manager
-    this.spriteManager = new SpriteManager();
-
-    this.handleResize = this.handleResize.bind(this);
-    this.renderLoop = this.renderLoop.bind(this);
-    window.addEventListener('resize', this.handleResize);
+    trySetupContainer();
   }
 
   /**
@@ -112,7 +136,12 @@ export class Canvas {
       this.isRunning = true;
       this.lastFrameTime = performance.now();
       this.renderStats.lastFpsUpdate = this.lastFrameTime;
-      this.renderLoop();
+      // Check isRunning again before starting the loop, in case stop() was called immediately
+      if (this.isRunning) {
+        this.animationFrameId = requestAnimationFrame(this.renderLoop);
+      }
+    } else {
+      console.warn("Canvas loop already running. Ignoring start() call.");
     }
   }
 
@@ -122,7 +151,11 @@ export class Canvas {
   public stop(): void {
     if (this.isRunning) {
       this.isRunning = false;
-      cancelAnimationFrame(this.animationFrameId);
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = 0; // Explicitly clear the ID
+      }
+      console.log("Canvas loop stopped.");
     }
   }
 
@@ -144,8 +177,17 @@ export class Canvas {
    * The main render loop
    */
   private renderLoop(currentTime: number = performance.now()): void {
+    // Immediate check upon entering the loop function
     if (!this.isRunning) {
+      console.log("Render loop entered but isRunning is false. Exiting.");
+      this.animationFrameId = 0; // Ensure ID is cleared if stop was called mid-frame
       return;
+    }
+
+    // Request the next frame *before* processing the current one
+    // Only request if we are still running
+    if (this.isRunning) {
+      this.animationFrameId = requestAnimationFrame(this.renderLoop);
     }
 
     // Calculate frame timing
@@ -153,7 +195,6 @@ export class Canvas {
 
     // Skip frame if we're running too fast
     if (deltaTime < this.minFrameTime) {
-      this.animationFrameId = requestAnimationFrame(this.renderLoop);
       return;
     }
 
@@ -172,14 +213,13 @@ export class Canvas {
     // Execute render callbacks
     Array.from(this.renderCallbacks).forEach(callback => {
       try {
+        // Final check before executing potentially heavy callbacks
+        if (!this.isRunning) return;
         callback(deltaTime);
       } catch (error) {
         console.error('Error in render callback:', error);
       }
     });
-
-    // Request next frame
-    this.animationFrameId = requestAnimationFrame(this.renderLoop);
   }
 
   /**
@@ -200,24 +240,43 @@ export class Canvas {
   /**
    * Creates a new layer with the given name and configuration
    */
-  public createLayer(name: string, config: Partial<LayerConfig> = {}): Layer {
+  public createLayer(name: LayerName, config: Partial<LayerConfig> = {}): Layer {
     if (this.layers.has(name)) {
-      throw new Error(`Layer "${name}" already exists`);
+      console.warn(`Layer ${name} already exists. Returning existing layer.`);
+      return this.layers.get(name)!;
     }
 
-    const layerConfig: LayerConfig = {
-      width: this.width,
-      height: this.height,
-      zIndex: config.zIndex || this.layers.size,
-      pixelRatio: this.pixelRatio,
+    const layerConfig = getLayerConfig(name);
+    const layer = new Layer({
+      name,
+      zIndex: config.zIndex ?? layerConfig.level,
       isVisible: config.isVisible
-    };
+    });
 
-    const layer = new Layer(layerConfig);
-    this.containerElement.appendChild(layer.getCanvas());
+    // Set dimensions after creation
+    layer.setDimensions(this.width, this.height, this.scale);
+
     this.layers.set(name, layer);
+    this.sortLayers();
 
     return layer;
+  }
+
+  private sortLayers(): void {
+    // Remove all existing canvases from container
+    while (this.containerElement.firstChild) {
+      this.containerElement.removeChild(this.containerElement.firstChild);
+    }
+
+    // Sort layers by z-index and append to container
+    const sortedLayers = Array.from(this.layers.values())
+      .sort((a, b) => a.getZIndex() - b.getZIndex());
+
+    for (const layer of sortedLayers) {
+      if (layer.isLayerVisible()) {
+        this.containerElement.appendChild(layer.getCanvas());
+      }
+    }
   }
 
   /**
@@ -249,23 +308,16 @@ export class Canvas {
   /**
    * Handles window resize events
    */
-  private handleResize(): void {
-    // Update container size
-    this.containerElement.style.width = `${this.width}px`;
-    this.containerElement.style.height = `${this.height}px`;
+  private handleResize = (): void => {
+    const { width, height } = this.containerElement.getBoundingClientRect();
+    this.width = width;
+    this.height = height;
 
-    // Update camera dimensions
-    this.camera = new Camera({
-      ...this.camera.getViewport(),
-      width: this.width,
-      height: this.height
-    });
-
-    // Update all layers
+    // Update all layers with new dimensions
     this.layers.forEach(layer => {
-      layer.resize(this.width, this.height);
+      layer.setDimensions(width, height, this.scale);
     });
-  }
+  };
 
   /**
    * Gets the current canvas dimensions

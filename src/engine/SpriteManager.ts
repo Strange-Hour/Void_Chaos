@@ -4,8 +4,8 @@
  */
 
 import { Sprite, SpriteConfig } from './Sprite';
-import { EnemyType } from './ecs/components/Enemy';
 import { EnemyFactory } from './ecs/factories/EnemyFactory';
+import { EnemyRegistry } from './ecs/enemies/EnemyRegistry';
 
 interface SpriteCache {
   [key: string]: Sprite;
@@ -213,10 +213,47 @@ export class SpriteManager {
   }
 
   /**
+   * Preloads all enemy sprites based on registered enemy types
+   */
+  public static async preloadEnemySprites(): Promise<void> {
+    const registry = EnemyRegistry.getInstance();
+    const enemyTypes = registry.getAllEnemyTypes();
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Preloading enemy sprites...');
+    }
+
+    const loadPromises = enemyTypes.map(async enemyType => {
+      const sprite = new Sprite({
+        url: `/sprites/enemy-${enemyType.id}`,
+        width: 32,
+        height: 32
+      });
+
+      try {
+        // Force load the sprite with a 15 second timeout
+        await sprite.forceLoad(15000);
+
+        // Set the sprite in the EnemyFactory
+        EnemyFactory.setEnemySprite(enemyType.id, sprite);
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`- Loaded sprite for enemy type: ${enemyType.id}`);
+        }
+      } catch (error) {
+        console.error(`Failed to load sprite for enemy type ${enemyType.id}:`, error);
+      }
+    });
+
+    await Promise.all(loadPromises);
+  }
+
+  /**
    * Checks if all enemy sprites are loaded and logs their status
    */
   public static checkEnemySpritesLoaded(): boolean {
-    const enemyTypes = [EnemyType.Basic, EnemyType.Flanker, EnemyType.Ranged];
+    const registry = EnemyRegistry.getInstance();
+    const enemyTypes = registry.getAllEnemyTypes();
     let allLoaded = true;
 
     if (process.env.NODE_ENV !== 'production') {
@@ -224,13 +261,13 @@ export class SpriteManager {
     }
 
     // Check each enemy type
-    enemyTypes.forEach(type => {
+    enemyTypes.forEach(enemyType => {
       // Get sprite directly from EnemyFactory without creating an entity
-      const sprite = this.getEnemySpriteForType(type);
+      const sprite = this.getEnemySpriteForType(enemyType.id);
       const isLoaded = sprite?.isReady() || false;
 
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`- Enemy type ${type}: ${isLoaded ? 'LOADED' : 'NOT LOADED'}`);
+        console.log(`- Enemy type ${enemyType.id}: ${isLoaded ? 'LOADED' : 'NOT LOADED'}`);
       }
 
       if (!isLoaded) {
@@ -244,9 +281,9 @@ export class SpriteManager {
   /**
    * Gets the sprite for a specific enemy type from the EnemyFactory
    */
-  private static getEnemySpriteForType(type: EnemyType): Sprite | undefined {
+  private static getEnemySpriteForType(typeId: string): Sprite | undefined {
     // Access the sprite directly from EnemyFactory's static cache
     // @ts-expect-error - Accessing private static property
-    return EnemyFactory.enemySprites[type];
+    return EnemyFactory.enemySprites[typeId];
   }
 } 

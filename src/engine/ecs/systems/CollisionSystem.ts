@@ -29,6 +29,7 @@ export class CollisionSystem extends System {
   private debug: boolean;
   private enablePositionResolution: boolean;
   private movementAdjustmentStrength: number;
+  private worldBounds: { width: number; height: number; padding: number };
 
   constructor(world: World) {
     // We need both collider and transform components
@@ -41,6 +42,7 @@ export class CollisionSystem extends System {
     this.debug = false;
     this.enablePositionResolution = true; // Enable by default
     this.movementAdjustmentStrength = 0.5; // Strength of push-back (0-1)
+    this.worldBounds = { width: 800, height: 600, padding: 40 }; // Default bounds
 
     // Register default collision handlers
     this.registerPlayerEnemyCollisions();
@@ -150,18 +152,58 @@ export class CollisionSystem extends System {
   }
 
   /**
+   * Set the world boundaries for collision checking
+   */
+  setWorldBounds(width: number, height: number, padding: number): void {
+    this.worldBounds = { width, height, padding };
+    console.log(`World bounds set to: ${width}x${height} with ${padding}px padding`);
+  }
+
+  /**
+   * Check if a position is within world bounds
+   */
+  private isWithinBounds(position: { x: number; y: number }): boolean {
+    const { width, height, padding } = this.worldBounds;
+    return (
+      position.x >= padding &&
+      position.x <= width - padding &&
+      position.y >= padding &&
+      position.y <= height - padding
+    );
+  }
+
+  /**
+   * Constrain a position to world bounds
+   */
+  private constrainToBounds(position: { x: number; y: number }): { x: number; y: number } {
+    const { width, height, padding } = this.worldBounds;
+    return {
+      x: Math.max(padding, Math.min(width - padding, position.x)),
+      y: Math.max(padding, Math.min(height - padding, position.y))
+    };
+  }
+
+  /**
    * Update the collision system
    */
   update(): void {
     const entities = this.getEntities();
     this.newCollisions = new Map();
 
-    // First pass: check all potential collisions
+    // First pass: check all potential collisions and world bounds
     for (let i = 0; i < entities.length; i++) {
       const entity1 = entities[i];
-      const collider1 = entity1.getComponent('collider') as Collider;
       const transform1 = entity1.getComponent('transform') as Transform;
       const position1 = transform1.getPosition();
+
+      // Check and constrain to world bounds
+      const constrainedPosition = this.constrainToBounds(position1);
+      if (constrainedPosition.x !== position1.x || constrainedPosition.y !== position1.y) {
+        transform1.setPosition(constrainedPosition);
+      }
+
+      // Continue with normal collision checks...
+      const collider1 = entity1.getComponent('collider') as Collider;
       const layer1 = collider1.getLayer();
 
       // Initialize collision tracking for this entity

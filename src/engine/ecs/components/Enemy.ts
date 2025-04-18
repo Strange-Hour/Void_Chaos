@@ -1,86 +1,34 @@
 import { Component } from '../Entity';
+import { IEnemyTypeDefinition } from '../enemies/types/IEnemyTypeDefinition';
+import { EnemyRegistry } from '../enemies/EnemyRegistry';
 
-export enum EnemyType {
-  Basic = 'basic',     // Simple chase behavior
-  Flanker = 'flanker', // Tries to flank the player
-  Ranged = 'ranged',   // Keeps distance and shoots
-}
-
-export interface EnemyConfig {
-  type: EnemyType;
-  speed: number;
-  health: number;
-  damage: number;
-  detectionRange: number;
-  attackRange: number;
-  scoreValue: number;
-}
-
-const DEFAULT_CONFIGS: Record<EnemyType, EnemyConfig> = {
-  [EnemyType.Basic]: {
-    type: EnemyType.Basic,
-    speed: 150,
-    health: 100,
-    damage: 20,
-    detectionRange: 400,
-    attackRange: 50,
-    scoreValue: 100,
-  },
-  [EnemyType.Flanker]: {
-    type: EnemyType.Flanker,
-    speed: 200,
-    health: 75,
-    damage: 15,
-    detectionRange: 500,
-    attackRange: 40,
-    scoreValue: 150,
-  },
-  [EnemyType.Ranged]: {
-    type: EnemyType.Ranged,
-    speed: 100,
-    health: 50,
-    damage: 10,
-    detectionRange: 600,
-    attackRange: 400,
-    scoreValue: 200,
-  },
-};
-
-/**
- * Component that defines enemy-specific properties and behavior configuration
- */
 export class Enemy extends Component {
-  private config: EnemyConfig;
+  private typeDefinition: IEnemyTypeDefinition;
   private currentHealth: number;
   private lastAttackTime: number;
-  private attackCooldown: number;
 
-  constructor(type: EnemyType = EnemyType.Basic) {
+  constructor(typeId: string) {
     super();
-    this.config = { ...DEFAULT_CONFIGS[type] };
-    this.currentHealth = this.config.health;
+    const registry = EnemyRegistry.getInstance();
+    const enemyType = registry.getEnemyType(typeId);
+    if (!enemyType) {
+      throw new Error(`Enemy type '${typeId}' not found in registry`);
+    }
+    this.typeDefinition = enemyType;
+    this.currentHealth = enemyType.config.health;
     this.lastAttackTime = 0;
-    this.attackCooldown = 1000; // 1 second cooldown between attacks
   }
 
   getType(): string {
     return 'enemy';
   }
 
-  getEnemyType(): EnemyType {
-    return this.config.type;
+  getEnemyTypeId(): string {
+    return this.typeDefinition.id;
   }
 
-  getConfig(): Readonly<EnemyConfig> {
-    return { ...this.config };
-  }
-
-  setConfig(config: EnemyConfig): void {
-    this.config = { ...config };
-    // Update current health to match new max health if it was higher
-    if (this.currentHealth > this.config.health) {
-      this.currentHealth = this.config.health;
-    }
+  getConfig(): Readonly<IEnemyTypeDefinition['config']> {
+    return { ...this.typeDefinition.config };
   }
 
   getCurrentHealth(): number {
@@ -92,7 +40,7 @@ export class Enemy extends Component {
   }
 
   heal(amount: number): void {
-    this.currentHealth = Math.min(this.config.health, this.currentHealth + amount);
+    this.currentHealth = Math.min(this.typeDefinition.config.health, this.currentHealth + amount);
   }
 
   isAlive(): boolean {
@@ -100,50 +48,50 @@ export class Enemy extends Component {
   }
 
   canAttack(currentTime: number): boolean {
-    return currentTime - this.lastAttackTime >= this.attackCooldown;
+    return currentTime - this.lastAttackTime >= this.typeDefinition.behavior.attackCooldown;
   }
 
   attack(currentTime: number): number {
     if (!this.canAttack(currentTime)) return 0;
 
     this.lastAttackTime = currentTime;
-    return this.config.damage;
+    return this.typeDefinition.config.damage;
   }
 
-  setAttackCooldown(cooldown: number): void {
-    this.attackCooldown = cooldown;
+  getDefaultState(): string {
+    return this.typeDefinition.behavior.defaultState;
   }
 
   getScoreValue(): number {
-    return this.config.scoreValue;
+    return this.typeDefinition.config.scoreValue;
   }
 
   serialize(): object {
     return {
-      config: this.config,
+      typeId: this.typeDefinition.id,
       currentHealth: this.currentHealth,
       lastAttackTime: this.lastAttackTime,
-      attackCooldown: this.attackCooldown,
     };
   }
 
   deserialize(data: {
-    config?: EnemyConfig;
+    typeId?: string;
     currentHealth?: number;
     lastAttackTime?: number;
-    attackCooldown?: number;
   }): void {
-    if (data.config) {
-      this.config = { ...data.config };
+    if (data.typeId) {
+      const registry = EnemyRegistry.getInstance();
+      const enemyType = registry.getEnemyType(data.typeId);
+      if (!enemyType) {
+        throw new Error(`Enemy type '${data.typeId}' not found in registry during deserialization`);
+      }
+      this.typeDefinition = enemyType;
     }
     if (typeof data.currentHealth === 'number') {
       this.currentHealth = data.currentHealth;
     }
     if (typeof data.lastAttackTime === 'number') {
       this.lastAttackTime = data.lastAttackTime;
-    }
-    if (typeof data.attackCooldown === 'number') {
-      this.attackCooldown = data.attackCooldown;
     }
   }
 } 

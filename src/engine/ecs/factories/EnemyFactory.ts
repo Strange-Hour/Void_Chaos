@@ -1,16 +1,17 @@
 import { Entity } from '@engine/ecs/Entity';
-import { Enemy, EnemyType } from '@engine/ecs/components/Enemy';
+import { Enemy } from '@engine/ecs/components/Enemy';
 import { Transform } from '@engine/ecs/components/Transform';
-import { AI } from '@engine/ecs/components/AI';
+import { AI, AIState } from '@engine/ecs/components/AI';
 import { Health } from '@engine/ecs/components/Health';
 import { Collider } from '@engine/ecs/components/Collider';
 import { Renderer } from '@engine/ecs/components/Renderer';
 import { Sprite } from '@engine/Sprite';
 import { CharacterController } from '@engine/ecs/components/CharacterController';
+import { EnemyRegistry } from '@engine/ecs/enemies/EnemyRegistry';
 
 export interface EnemySpawnOptions {
   position: { x: number; y: number };
-  type?: EnemyType;
+  typeId?: string;
   aiTarget?: { x: number; y: number; entity?: Entity };
   sprite?: Sprite;
   difficultyMultiplier?: number;
@@ -20,13 +21,13 @@ export interface EnemySpawnOptions {
  * Factory class for creating enemy entities with appropriate components
  */
 export class EnemyFactory {
-  private static enemySprites: { [key in EnemyType]?: Sprite } = {};
+  private static enemySprites: { [key: string]: Sprite } = {};
 
   /**
    * Set the sprite for a specific enemy type
    */
-  static setEnemySprite(type: EnemyType, sprite: Sprite): void {
-    this.enemySprites[type] = sprite;
+  static setEnemySprite(typeId: string, sprite: Sprite): void {
+    this.enemySprites[typeId] = sprite;
   }
 
   /**
@@ -34,20 +35,21 @@ export class EnemyFactory {
    */
   static createEnemy(options: EnemySpawnOptions): Entity {
     const enemy = new Entity();
-    const type = options.type || EnemyType.Basic;
+    const typeId = options.typeId || 'basic';
 
     // Add enemy component with type-specific configuration
-    const enemyComponent = new Enemy(type);
+    const enemyComponent = new Enemy(typeId);
+    const config = enemyComponent.getConfig();
 
     // Apply difficulty multiplier if provided
     if (options.difficultyMultiplier) {
-      const config = enemyComponent.getConfig();
-      enemyComponent.setConfig({
+      const adjustedConfig = {
         ...config,
         health: Math.round(config.health * options.difficultyMultiplier),
         damage: Math.round(config.damage * options.difficultyMultiplier),
         speed: Math.round(config.speed * options.difficultyMultiplier)
-      });
+      };
+      // Note: We don't need setConfig anymore as config is immutable
     }
 
     enemy.addComponent(enemyComponent);
@@ -58,7 +60,6 @@ export class EnemyFactory {
     enemy.addComponent(transform);
 
     // Add character controller for movement and aiming
-    const config = enemyComponent.getConfig();
     const controller = new CharacterController({
       maxSpeed: config.speed,
       acceleration: 1000,
@@ -66,40 +67,37 @@ export class EnemyFactory {
     });
     enemy.addComponent(controller);
 
-    // Add health component with difficulty-adjusted health
+    // Add health component
     const health = new Health({ maxHealth: config.health });
     enemy.addComponent(health);
 
     // Add collider component
     const collider = new Collider({
-      width: 32, // Default size, can be adjusted per enemy type
+      width: 32,
       height: 32,
-      offset: { x: -16, y: -16 }, // Center the collision box
+      offset: { x: -16, y: -16 },
     }, {
-      layer: 2, // Enemy is on layer 2 (player is on layer 1)
+      layer: 2,
       isTrigger: false,
     });
     enemy.addComponent(collider);
 
     // Add renderer component if sprite is available
-    const sprite = options.sprite || this.enemySprites[type];
+    const sprite = options.sprite || this.enemySprites[typeId];
     if (!sprite && process.env.NODE_ENV !== 'production') {
-      console.warn(`No sprite found for enemy type: ${type}`);
+      console.warn(`No sprite found for enemy type: ${typeId}`);
     }
     const renderer = new Renderer(sprite || new Sprite({
-      url: '/sprites/enemy-basic', // Fallback sprite with no extension
+      url: '/sprites/enemy-basic',
       width: 32,
       height: 32
     }));
-
-    // Explicitly ensure the renderer is visible
     renderer.setVisible(true);
-
     enemy.addComponent(renderer);
 
     // Add AI component with appropriate behaviors
     const ai = new AI();
-    this.setupAIBehaviors(ai, type);
+    ai.setState(enemyComponent.getDefaultState() as AIState);
     if (options.aiTarget) {
       ai.setTarget({
         position: { x: options.aiTarget.x, y: options.aiTarget.y },
@@ -109,28 +107,5 @@ export class EnemyFactory {
     enemy.addComponent(ai);
 
     return enemy;
-  }
-
-  /**
-   * Sets up AI behaviors based on enemy type
-   */
-  private static setupAIBehaviors(ai: AI, type: EnemyType): void {
-    // Set initial state based on enemy type
-    switch (type) {
-      case EnemyType.Basic:
-        ai.setState('chase');
-        break;
-
-      case EnemyType.Flanker:
-        ai.setState('chase'); // Flankers also chase but with different behavior
-        break;
-
-      case EnemyType.Ranged:
-        ai.setState('retreat'); // Ranged enemies maintain distance
-        break;
-
-      default:
-        ai.setState('idle');
-    }
   }
 } 

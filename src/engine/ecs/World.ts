@@ -31,6 +31,25 @@ export class World {
    * Add an entity to the world
    */
   addEntity(entity: Entity): void {
+    console.log(`World.addEntity: Adding entity ${entity.getId()} with components:`,
+      Array.from(entity.getComponents()).map(c => c.getType()));
+
+    // Check if this is a player entity
+    if (entity.hasComponent('player')) {
+      // Check both processed entities and entities waiting to be added
+      const existingPlayersInWorld = Array.from(this.entities).filter(e => e.hasComponent('player'));
+      const pendingPlayersToAdd = this.entitiesToAdd.filter(e => e.hasComponent('player'));
+      const totalExistingPlayers = existingPlayersInWorld.length + pendingPlayersToAdd.length;
+
+      console.log(`World.addEntity: Found ${existingPlayersInWorld.length} existing players in world, ${pendingPlayersToAdd.length} pending players before adding new player`);
+
+      if (totalExistingPlayers > 0) {
+        console.warn(`World.addEntity: Attempting to add a player when ${totalExistingPlayers} already exist(s) (in world or pending). Blocking addition.`);
+        console.trace('Stack trace for duplicate player addition:');
+        return; // Prevent adding duplicate player
+      }
+    }
+
     this.entitiesToAdd.push(entity);
   }
 
@@ -100,34 +119,33 @@ export class World {
    */
   processEntityChanges(): void {
     // Add new entities
-    if (this.entitiesToAdd.length > 1) {
-      console.log('World: Processing multiple entities', {
-        count: this.entitiesToAdd.length
-      });
-    }
+    if (this.entitiesToAdd.length > 0) {
+      console.log(`World.processEntityChanges: Processing ${this.entitiesToAdd.length} new entities`);
 
-    for (const entity of this.entitiesToAdd) {
-      this.entities.add(entity);
-      for (const system of this.systems) {
-        if (system.shouldProcessEntity(entity)) {
-          system.addEntity(entity);
+      for (const entity of this.entitiesToAdd) {
+        if (entity.hasComponent('player')) {
+          console.log('World.processEntityChanges: Processing player entity addition');
+        }
+        this.entities.add(entity);
+        for (const system of this.systems) {
+          if (system.shouldProcessEntity(entity)) {
+            system.addEntity(entity);
+          }
         }
       }
+      this.entitiesToAdd = [];
     }
-    this.entitiesToAdd = [];
 
     // Remove entities
-    if (this.entitiesToRemove.length > 1) {
-      console.log('World: Removing multiple entities', {
-        count: this.entitiesToRemove.length
-      });
-    }
+    if (this.entitiesToRemove.length > 0) {
+      console.log(`World.processEntityChanges: Removing ${this.entitiesToRemove.length} entities`);
 
-    for (const entity of this.entitiesToRemove) {
-      this.entities.delete(entity);
-      entity.dispose();
+      for (const entity of this.entitiesToRemove) {
+        this.entities.delete(entity);
+        entity.dispose();
+      }
+      this.entitiesToRemove = [];
     }
-    this.entitiesToRemove = [];
   }
 
   /**
