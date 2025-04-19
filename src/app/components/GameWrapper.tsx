@@ -13,10 +13,10 @@ import { CharacterControllerSystem } from "@/engine/ecs/systems/CharacterControl
 import { DebugSystem } from "@engine/ecs/systems/DebugSystem";
 import { AIBehaviorSystem } from "@engine/ecs/systems/AIBehaviorSystem";
 import { WaveSpawnSystem } from "@engine/ecs/systems/WaveSpawnSystem";
-import { WorldSystem } from "@engine/ecs/systems/WorldSystem";
 import { SpriteManager } from "@engine/SpriteManager";
 import { Sprite } from "@engine/Sprite";
 import { createPlayer } from '@engine/ecs/factories/PlayerFactory';
+import { GameLoop } from "@engine/core/gameLoop";
 
 interface GameWrapperProps {
   dimensions: {
@@ -29,11 +29,12 @@ interface GameWrapperProps {
 // Use window object for a truly global reference that survives HMR
 declare global {
   interface Window {
-    globalGameInstance?: { 
-      game: Game | null; 
+    globalGameInstance?: {
+      gameLoop: GameLoop | null;
+      game: Game | null;
       world: World | null;
-      isInitializing: boolean;  // Add initialization lock
-      instanceId: number | null;  // Track which instance is initializing
+      isInitializing: boolean;
+      instanceId: number | null;
     };
   }
 }
@@ -46,12 +47,13 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    const instanceId = Date.now(); // Unique ID for this effect run
+    const instanceId = Date.now();
     console.log(`[${instanceId}] GameWrapper useEffect START`);
 
     // Initialize the global state if it doesn't exist
     if (!window.globalGameInstance) {
       window.globalGameInstance = {
+        gameLoop: null,
         game: null,
         world: null,
         isInitializing: false,
@@ -60,7 +62,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
     }
 
     // If game is already running, just link to it
-    if (window.globalGameInstance.game && !window.globalGameInstance.isInitializing) {
+    if (window.globalGameInstance.gameLoop && !window.globalGameInstance.isInitializing) {
       console.log(`[${instanceId}] Game already initialized and running, linking to existing instance`);
       if (!isInitialized.current) {
         if (window.globalGameInstance.world) {
@@ -105,6 +107,12 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
       targetFPS: 60,
     });
 
+    // Initialize GameLoop
+    console.log(`[${instanceId}] Creating new GameLoop instance`);
+    const gameLoop = GameLoop.getInstance();
+    window.globalGameInstance.gameLoop = gameLoop;
+    gameLoop.setWorld(world);
+
     // Create input manager and provider
     const inputManager = new InputManager({
       enableKeyboard: true,
@@ -120,9 +128,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
     // Add global key event listener to debug F1 presses
     const keyListener = (e: KeyboardEvent): void => {
       if (e.key === "r" || e.key === "R") {
-        if (window.globalGameInstance?.game) { // Check window instance
-          window.globalGameInstance.game.forceRedraw();
-        }
+        game.forceRedraw();
       }
     };
 
@@ -130,9 +136,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
 
     // Set up an interval to force redraw regularly to ensure debug lines are updated
     const redrawInterval = setInterval(() => {
-      if (window.globalGameInstance?.game && debug) { // Check window instance
-        const game = window.globalGameInstance.game;
-        const world = window.globalGameInstance.world;
+      if (debug) {
         const lastRedrawTime = (window as any)._lastGameRedrawTime || 0;
         const currentTime = Date.now();
 
@@ -140,17 +144,15 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
           game.forceRedraw();
           (window as any)._lastGameRedrawTime = currentTime;
 
-          if (world) {
-            setEntityCount(world.getEntities().length);
-            setFps(60); // Note: This might not be accurate, consider getting actual FPS
+          setEntityCount(world.getEntities().length);
+          setFps(60); // Note: This might not be accurate, consider getting actual FPS
 
-            const players = world.getEntities().filter((entity: Entity) => entity.hasComponent("player"));
-            if (players.length > 0) {
-              const player = players[0];
-              if (player.hasComponent("health")) {
-                const health = player.getComponent("health") as Health;
-                setPlayerStats(`HP: ${health.getCurrentHealth()}/${health.getMaxHealth()}`);
-              }
+          const players = world.getEntities().filter((entity: Entity) => entity.hasComponent("player"));
+          if (players.length > 0) {
+            const player = players[0];
+            if (player.hasComponent("health")) {
+              const health = player.getComponent("health") as Health;
+              setPlayerStats(`HP: ${health.getCurrentHealth()}/${health.getMaxHealth()}`);
             }
           }
         }
@@ -161,7 +163,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
     SpriteManager.preloadEssentialSprites()
       .then(async () => {
         console.log(`[${instanceId}] SpriteManager.then() START`);
-        
+
         // Only proceed if we still hold the initialization lock
         if (window.globalGameInstance?.instanceId !== instanceId) {
           console.log(`[${instanceId}] Lost initialization lock, aborting setup`);
@@ -188,7 +190,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
         collisionSystem.setLayerCollision(2, 2, false);
 
         // Set world bounds for collision system
-        const worldPadding = Math.min(dimensions.width, dimensions.height) * 0.025; // 2.5% padding
+        const worldPadding = Math.min(dimensions.width, dimensions.height) * 0.025;
         collisionSystem.setWorldBounds(dimensions.width, dimensions.height, worldPadding);
 
         // Store debug references
@@ -207,9 +209,10 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
         world.addSystem(renderSystem);
         world.addSystem(collisionSystem);
 
-        // Create and add WorldSystem
-        const worldSystem = new WorldSystem(world);
-        game.addSystem(worldSystem);
+        // Add render callback to GameLoop
+        gameLoop.addRenderCallback((deltaTime) => {
+          game.forceRedraw();
+        });
 
         // Configure wave spawning
         const boundary = {
@@ -227,7 +230,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
             spawnDelay: 2000,
             waveDelay: 5000,
           },
-         {
+          {
             enemies: [
               { typeId: 'basic', count: 5 },
               { typeId: 'bomber', count: 4 },
@@ -255,7 +258,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
         });
 
         await playerSprite.forceLoad(10000);
-        
+
         // Check if a player already exists
         const existingPlayers = world.getEntities().filter(entity => entity.hasComponent('player'));
         console.log(`[${instanceId}] Checking for existing players: ${existingPlayers.length}`);
@@ -272,7 +275,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
         // Start the game
         waveSpawnSystem.startNextWave();
         console.log(`[${instanceId}] Starting game loop...`);
-        game.start();
+        gameLoop.start();
 
         // After everything is set up, release the initialization lock
         console.log(`[${instanceId}] Setup complete, releasing initialization lock`);
@@ -285,6 +288,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
         if (window.globalGameInstance?.instanceId === instanceId) {
           window.globalGameInstance.isInitializing = false;
           window.globalGameInstance.instanceId = null;
+          window.globalGameInstance.gameLoop = null;
           window.globalGameInstance.game = null;
           window.globalGameInstance.world = null;
         }
@@ -294,16 +298,17 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
     // Cleanup function
     return () => {
       console.log(`[${instanceId}] GameWrapper useEffect cleanup`);
-      
+
       // Only cleanup if we own the current instance
       if (window.globalGameInstance?.instanceId === instanceId) {
         console.log(`[${instanceId}] We own the instance, cleaning up`);
         window.globalGameInstance.isInitializing = false;
         window.globalGameInstance.instanceId = null;
-        
-        if (window.globalGameInstance.game) {
+
+        if (window.globalGameInstance.gameLoop) {
           console.log(`[${instanceId}] Stopping game loop...`);
-          window.globalGameInstance.game.stop();
+          window.globalGameInstance.gameLoop.stop();
+          window.globalGameInstance.gameLoop = null;
           window.globalGameInstance.game = null;
           window.globalGameInstance.world = null;
         }
@@ -314,7 +319,7 @@ export default function GameWrapper({ dimensions, containerId }: GameWrapperProp
       clearInterval(redrawInterval);
       isInitialized.current = false;
     };
-  }, [dimensions, containerId]);
+  }, [dimensions, containerId, debug]);
 
   return debug ? (
     <div className='absolute bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 text-sm'>
