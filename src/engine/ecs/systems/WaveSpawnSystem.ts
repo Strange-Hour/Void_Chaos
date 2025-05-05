@@ -294,10 +294,6 @@ export class WaveSpawnSystem extends System {
 
     const enemy = EnemyFactory.createEnemy(spawnOptions);
     this.world.addEntity(enemy);
-
-    if (this.debug) {
-      console.log(`Spawned ${typeId} enemy at position (${validPosition.x.toFixed(1)}, ${validPosition.y.toFixed(1)})`);
-    }
   }
 
   /**
@@ -375,9 +371,6 @@ export class WaveSpawnSystem extends System {
 
       // Check if this position is valid
       if (!this.isPositionNearEntities(testPosition, allEntities, minDistance)) {
-        if (this.debug) {
-          console.log(`Found valid spawn position on attempt ${attempt + 1}`);
-        }
         return testPosition;
       }
     }
@@ -392,10 +385,6 @@ export class WaveSpawnSystem extends System {
     // Ensure position is within boundaries
     fallbackPosition.x = Math.max(this.boundary.padding, Math.min(this.boundary.width - this.boundary.padding, fallbackPosition.x));
     fallbackPosition.y = Math.max(this.boundary.padding, Math.min(this.boundary.height - this.boundary.padding, fallbackPosition.y));
-
-    if (this.debug) {
-      console.log(`Using fallback spawn position after ${maxAttempts} failed attempts`);
-    }
 
     return fallbackPosition;
   }

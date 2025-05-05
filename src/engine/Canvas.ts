@@ -95,7 +95,6 @@ export class Canvas {
         if (!this.container) {
           if (retryCount < maxRetries) {
             retryCount++;
-            console.log(`Waiting for container ${config.containerId}, attempt ${retryCount}/${maxRetries}`);
             setTimeout(trySetupContainer, retryInterval);
             return;
           }
@@ -155,7 +154,6 @@ export class Canvas {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = 0; // Explicitly clear the ID
       }
-      console.log("Canvas loop stopped.");
     }
   }
 
@@ -179,7 +177,6 @@ export class Canvas {
   private renderLoop(currentTime: number = performance.now()): void {
     // Immediate check upon entering the loop function
     if (!this.isRunning) {
-      console.log("Render loop entered but isRunning is false. Exiting.");
       this.animationFrameId = 0; // Ensure ID is cleared if stop was called mid-frame
       return;
     }
@@ -524,7 +521,5 @@ export class Canvas {
         console.error('Error in render callback during force redraw:', error);
       }
     });
-
-    console.log('Force redraw triggered for all layers');
   }
 } 

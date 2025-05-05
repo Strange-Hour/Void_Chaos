@@ -221,7 +221,6 @@ export class Sprite {
   private forceLoadImage(): void {
     // Only try to force load if not already loading
     if (!this.image.complete && this.loadAttempts < this.maxLoadAttempts) {
-      console.log('Force loading image:', this.url);
       this.loadAttempts++;
 
       // Create a new image element
@@ -229,7 +228,6 @@ export class Sprite {
 
       // Set up handlers first
       newImage.onload = () => {
-        console.log('Successfully force-loaded:', this.url);
         this.isLoaded = true;
         this.image = newImage;
       };

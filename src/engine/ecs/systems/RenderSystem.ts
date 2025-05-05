@@ -21,21 +21,6 @@ export class RenderSystem extends System {
       throw new Error('Failed to create game layer');
     }
     this.gameLayer = layer.getContext();
-
-    // Verify canvas dimensions
-    console.log('Game layer canvas dimensions:', {
-      canvas: layer.getCanvas(),
-      width: layer.getCanvas().width,
-      height: layer.getCanvas().height,
-      style: {
-        width: layer.getCanvas().style.width,
-        height: layer.getCanvas().style.height,
-        display: layer.getCanvas().style.display,
-        position: layer.getCanvas().style.position,
-      }
-    });
-
-    console.log('RenderSystem initialized with game layer');
   }
 
   update(): void {

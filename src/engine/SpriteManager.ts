@@ -170,9 +170,6 @@ export class SpriteManager {
    * Preloads essential game sprites
    */
   public static preloadEssentialSprites(): Promise<void> {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Preloading essential game sprites...');
-    }
 
     // Define essential sprites - without file extensions to allow format fallback
     const essentialSprites = [
@@ -186,11 +183,6 @@ export class SpriteManager {
     // Create sprite instances
     const sprites = essentialSprites.map(config => new Sprite(config));
 
-    // Log paths for debugging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Preloading sprites:', essentialSprites.map(s => s.url));
-    }
-
     // Force load all sprites with a longer timeout
     return Promise.all(sprites.map(sprite =>
       sprite.forceLoad(15000)
@@ -201,10 +193,6 @@ export class SpriteManager {
         })
     ))
       .then(() => {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Essential sprites preloaded successfully');
-        }
-
         // After preloading essential sprites, load enemy sprites and register them with the EnemyFactory
         return this.preloadEnemySprites().then(() => Promise.resolve());
       })
@@ -222,10 +210,6 @@ export class SpriteManager {
     const registry = EnemyRegistry.getInstance();
     const enemyTypes = registry.getAllEnemyTypes();
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Preloading enemy sprites...');
-    }
-
     const loadPromises = enemyTypes.map(async enemyType => {
       const sprite = new Sprite({
         url: `/sprites/enemy-${enemyType.id}.svg`,
@@ -239,10 +223,6 @@ export class SpriteManager {
 
         // Set the sprite in the EnemyFactory
         EnemyFactory.setEnemySprite(enemyType.id, sprite);
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`- Loaded sprite for enemy type: ${enemyType.id}`);
-        }
       } catch (error) {
         console.error(`Failed to load sprite for enemy type ${enemyType.id}:`, error);
       }
@@ -259,19 +239,11 @@ export class SpriteManager {
     const enemyTypes = registry.getAllEnemyTypes();
     let allLoaded = true;
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Checking enemy sprite loading status:');
-    }
-
     // Check each enemy type
     enemyTypes.forEach(enemyType => {
       // Get sprite directly from EnemyFactory without creating an entity
       const sprite = this.getEnemySpriteForType(enemyType.id);
       const isLoaded = sprite?.isReady() || false;
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`- Enemy type ${enemyType.id}: ${isLoaded ? 'LOADED' : 'NOT LOADED'}`);
-      }
 
       if (!isLoaded) {
         allLoaded = false;

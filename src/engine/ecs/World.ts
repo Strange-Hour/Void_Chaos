@@ -31,8 +31,6 @@ export class World {
    * Add an entity to the world
    */
   addEntity(entity: Entity): void {
-    console.log(`World.addEntity: Adding entity ${entity.getId()} with components:`,
-      Array.from(entity.getComponents()).map(c => c.getType()));
 
     // Check if this is a player entity
     if (entity.hasComponent('player')) {
@@ -40,8 +38,6 @@ export class World {
       const existingPlayersInWorld = Array.from(this.entities).filter(e => e.hasComponent('player'));
       const pendingPlayersToAdd = this.entitiesToAdd.filter(e => e.hasComponent('player'));
       const totalExistingPlayers = existingPlayersInWorld.length + pendingPlayersToAdd.length;
-
-      console.log(`World.addEntity: Found ${existingPlayersInWorld.length} existing players in world, ${pendingPlayersToAdd.length} pending players before adding new player`);
 
       if (totalExistingPlayers > 0) {
         console.warn(`World.addEntity: Attempting to add a player when ${totalExistingPlayers} already exist(s) (in world or pending). Blocking addition.`);
@@ -126,12 +122,7 @@ export class World {
   processEntityChanges(): void {
     // Add new entities
     if (this.entitiesToAdd.length > 0) {
-      console.log(`World.processEntityChanges: Processing ${this.entitiesToAdd.length} new entities`);
-
       for (const entity of this.entitiesToAdd) {
-        if (entity.hasComponent('player')) {
-          console.log('World.processEntityChanges: Processing player entity addition');
-        }
         this.entities.add(entity);
         for (const system of this.systems) {
           if (system.shouldProcessEntity(entity)) {
@@ -144,8 +135,6 @@ export class World {
 
     // Remove entities
     if (this.entitiesToRemove.length > 0) {
-      console.log(`World.processEntityChanges: Removing ${this.entitiesToRemove.length} entities`);
-
       for (const entity of this.entitiesToRemove) {
         this.entities.delete(entity);
         entity.dispose();
@@ -167,7 +156,6 @@ export class World {
 
     // Update all systems
     for (const system of this.systems) {
-      console.log(`World.update: Checking system ${system.constructor.name}`);
       // Give higher priority to AI and Debug systems by ensuring they always update
       // with the most current state, even when delta time is small
       if (system.constructor.name === 'AIBehaviorSystem' ||
@@ -200,15 +188,6 @@ export class World {
 
     if (currentEntityCount !== this.lastLoggedEntityCount ||
       currentSystemCount !== this.lastLoggedSystemCount) {
-      console.log('World State Changed:', {
-        deltaTime: safeDeltatime,
-        systemCount: currentSystemCount,
-        entityCount: currentEntityCount,
-        change: {
-          entities: currentEntityCount - this.lastLoggedEntityCount,
-          systems: currentSystemCount - this.lastLoggedSystemCount
-        }
-      });
       this.lastLoggedEntityCount = currentEntityCount;
       this.lastLoggedSystemCount = currentSystemCount;
     }

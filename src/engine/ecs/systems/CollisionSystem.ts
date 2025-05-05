@@ -46,8 +46,6 @@ export class CollisionSystem extends System {
 
     // Register default collision handlers
     this.registerPlayerEnemyCollisions();
-
-    console.log('CollisionSystem initialized with default player-enemy handlers');
   }
 
   /**
@@ -62,7 +60,6 @@ export class CollisionSystem extends System {
    */
   setPositionResolution(enabled: boolean): void {
     this.enablePositionResolution = enabled;
-    console.log(`Collision position resolution ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -71,7 +68,6 @@ export class CollisionSystem extends System {
    */
   setResolutionStrength(strength: number): void {
     this.movementAdjustmentStrength = Math.min(Math.max(0, strength), 1);
-    console.log(`Collision resolution strength set to ${this.movementAdjustmentStrength}`);
   }
 
   /**
@@ -89,8 +85,6 @@ export class CollisionSystem extends System {
     // Set collision rules (both ways)
     this.collisionMatrix.get(layer1)!.set(layer2, canCollide);
     this.collisionMatrix.get(layer2)!.set(layer1, canCollide);
-
-    console.log(`Collision layer rule set: Layer ${layer1} and Layer ${layer2} can collide: ${canCollide}`);
   }
 
   /**
@@ -98,7 +92,6 @@ export class CollisionSystem extends System {
    */
   registerCollisionCallback(pair: CollisionPair): void {
     this.collisionCallbacks.push(pair);
-    console.log(`Registered collision callback between '${pair.entity1Type}' and '${pair.entity2Type}'`);
   }
 
   /**
@@ -132,12 +125,7 @@ export class CollisionSystem extends System {
       if (playerEntity.hasComponent('health')) {
         const health = playerEntity.getComponent('health') as Health;
         health.damage(damage);
-        console.log(`COLLISION: Player took ${damage} damage from enemy ${enemyEntity.getId()}, health now: ${health.getCurrentHealth()}/${health.getMaxHealth()}`);
-      } else {
-        console.log(`COLLISION: Player-enemy collision detected but player has no health component`);
       }
-    } else {
-      console.log(`COLLISION: Player-enemy collision detected but enemy ${enemyEntity.getId()} can't attack yet (cooldown)`);
     }
   }
 
@@ -156,7 +144,6 @@ export class CollisionSystem extends System {
    */
   setWorldBounds(width: number, height: number, padding: number): void {
     this.worldBounds = { width, height, padding };
-    console.log(`World bounds set to: ${width}x${height} with ${padding}px padding`);
   }
 
   /**
@@ -235,10 +222,6 @@ export class CollisionSystem extends System {
 
         // Check for collision
         if (collider1.intersects(collider2, position1, position2)) {
-          // Log collision detection with entity types
-          const entity1Type = this.getEntityTypeString(entity1);
-          const entity2Type = this.getEntityTypeString(entity2);
-          console.log(`COLLISION DETECTED: ${entity1Type} (${entity1.getId()}) with ${entity2Type} (${entity2.getId()})`);
 
           // Record the collision
           this.newCollisions.get(entity1.getId())!.add(entity2.getId());
@@ -423,10 +406,6 @@ export class CollisionSystem extends System {
         }
       }
     }
-
-    if (this.debug) {
-      console.log(`COLLISION RESOLUTION: Moved entity ${entity1.getId()} by (${entity1MoveX.toFixed(2)}, ${entity1MoveY.toFixed(2)}) and entity ${entity2.getId()} by (${entity2MoveX.toFixed(2)}, ${entity2MoveY.toFixed(2)})`);
-    }
   }
 
   /**
@@ -452,7 +431,6 @@ export class CollisionSystem extends System {
         (entity1.hasComponent(pair.entity2Type) && entity2.hasComponent(pair.entity1Type))
       ) {
         callbackTriggered = true;
-        console.log(`COLLISION CALLBACK: Triggering callback for ${pair.entity1Type}-${pair.entity2Type} collision`);
 
         // Make sure entity1 is of entity1Type for the callback
         if (entity1.hasComponent(pair.entity1Type) && entity2.hasComponent(pair.entity2Type)) {
@@ -464,7 +442,7 @@ export class CollisionSystem extends System {
     }
 
     if (!callbackTriggered) {
-      console.log(`COLLISION: No callback registered for collision between entities ${entity1.getId()} and ${entity2.getId()}`);
+      // No callback registered for collision between entities
     }
   }
 } 

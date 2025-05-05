@@ -52,7 +52,6 @@ export class InputSystem extends System implements IInputEventSubscriber {
         this.inputHistory = []; // Reset history for new player
         this.lastMoveDirection = { x: 1, y: 0 };
         this.lastActiveInputType = 'none';
-        console.log(`InputSystem: Player entity found (ID: ${entity.getId()})`);
       }
       super.addEntity(entity); // Add to the system's internal set if needed (might not be necessary)
     }
@@ -63,7 +62,6 @@ export class InputSystem extends System implements IInputEventSubscriber {
     if (this.playerEntity === entity) {
       this.playerEntity = null;
       this.inputHistory = [];
-      console.log(`InputSystem: Player entity removed (ID: ${entity.getId()})`);
     }
     super.removeEntity(entity);
   }

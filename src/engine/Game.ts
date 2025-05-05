@@ -80,11 +80,8 @@ export class Game {
    */
   initializeCollisionSystem(): CollisionSystem {
     if (this.collisionSystem) {
-      console.log('Collision system already initialized, returning existing instance');
       return this.collisionSystem;
     }
-
-    console.log('Initializing collision system...');
 
     // Create a new collision system
     this.collisionSystem = new CollisionSystem(this.world);
@@ -99,10 +96,6 @@ export class Game {
         this.collisionSystem.setLayerCollision(i, j, true);
       }
     }
-
-    console.log('Collision system initialized and added to game systems');
-    console.log(`Total entities in world: ${this.world.getEntities().length}`);
-    console.log(`Total systems in game: ${this.systems.length}`);
 
     return this.collisionSystem;
   }

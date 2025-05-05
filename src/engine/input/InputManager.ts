@@ -98,16 +98,6 @@ export class InputManager {
       this.processAction(action, deltaTime);
       this.processAxis(action);
     });
-
-    // Debug log active axes (Move and Aim)
-    const moveAxis = this.lastAxisValues.get(InputAction.Move);
-    if (moveAxis && moveAxis.magnitude > 0) {
-      console.log('Active Move Axis:', {
-        value: moveAxis.value,
-        normalized: moveAxis.normalized,
-        magnitude: moveAxis.magnitude
-      });
-    }
   }
 
   /**
@@ -215,9 +205,6 @@ export class InputManager {
           resultAxis.x += axis.value.x;
           resultAxis.y += axis.value.y;
           hasInput = true;
-
-          // Debug which provider is giving input
-          console.log(`Provider ${provider.deviceType} has active input for ${action}:`, axis);
         }
       }
     });
@@ -243,15 +230,9 @@ export class InputManager {
 
     if (hasInput || lastAxis.magnitude > 0) {
       if (hasChanged) {
-        console.log(`InputManager: Axis ${action} changed:`, {
-          from: { mag: lastAxis.magnitude, norm: lastAxis.normalized },
-          to: { mag: newAxis.magnitude, norm: newAxis.normalized }
-        });
-
         this.lastAxisValues.set(action, newAxis);
         this.subscribers.forEach(sub => {
           if (sub.onInputAxisChange) {
-            console.log(`Notifying subscriber ${sub.constructor.name} of axis change`);
             sub.onInputAxisChange(action, newAxis);
           }
         });

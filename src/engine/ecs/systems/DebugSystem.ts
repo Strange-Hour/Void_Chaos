@@ -27,6 +27,11 @@ export class DebugSystem extends System implements IInputEventSubscriber {
   // Track all renderable entities for drawing outlines
   private renderableEntities: Set<Entity> = new Set();
 
+  // FPS tracking for debug overlay
+  private frameTimes: number[] = [];
+  private lastFrameTime: number = performance.now();
+  private fps: number = 0;
+
   constructor(canvas: Canvas, inputManager: InputManager) {
     super(['transform', 'character-controller']);
     this.canvas = canvas;
@@ -66,14 +71,6 @@ export class DebugSystem extends System implements IInputEventSubscriber {
 
       this.debugEntities.set(entity, { transform, controller, ai, health });
 
-      console.log('DebugSystem: Added entity', {
-        entityId: entity.getId(),
-        hasTransform: !!transform,
-        hasController: !!controller,
-        hasAI: !!ai,
-        hasHealth: !!health
-      });
-
       // Force an update to draw targeting lines immediately when new AI entities are added
       this.update();
     }
@@ -111,8 +108,6 @@ export class DebugSystem extends System implements IInputEventSubscriber {
    * Force a debug draw cycle and log debugging info
    */
   forceDebugDraw(): void {
-    console.log('Force debug draw called with isEnabled:', this.isEnabled);
-
     // Temporarily enable forced drawing
     this.forceDrawEvenWhenDisabled = true;
 
@@ -121,26 +116,18 @@ export class DebugSystem extends System implements IInputEventSubscriber {
 
     // Reset forced drawing flag
     this.forceDrawEvenWhenDisabled = false;
-
-    // Log info about debug entities
-    this.debugEntities.forEach(({ transform, controller, health }, entity) => {
-      const position = transform.getPosition();
-      const velocity = controller.getVelocity();
-      const moveDir = controller.getMoveDirection();
-
-      console.log('Debug entity:', {
-        entityId: entity.getId(),
-        position,
-        velocity,
-        moveDir,
-        hasAI: entity.hasComponent('ai'),
-        isPlayer: entity.hasComponent('player'),
-        health: health ? `${health.getCurrentHealth()}/${health.getMaxHealth()}` : 'N/A'
-      });
-    });
   }
 
   update(): void {
+    // FPS calculation
+    const now = performance.now();
+    const delta = now - this.lastFrameTime;
+    this.lastFrameTime = now;
+    this.frameTimes.push(delta);
+    if (this.frameTimes.length > 60) this.frameTimes.shift();
+    const avgDelta = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+    this.fps = 1000 / avgDelta;
+
     // Always update entities and references, only conditionally draw
     // This ensures we always have the freshest data for when debug is toggled on
     this.refreshEntityReferences();
@@ -169,6 +156,9 @@ export class DebugSystem extends System implements IInputEventSubscriber {
     // Set up debug drawing style
     this.debugLayer.lineWidth = 2;
     this.debugLayer.font = '12px monospace';
+
+    // Draw FPS counter in top right
+    this.drawFPSCounter();
 
     // Get debug entities with fresh AI target information
     this.getFreshEntityInfo();
@@ -508,21 +498,6 @@ export class DebugSystem extends System implements IInputEventSubscriber {
     );
 
     if (playerEntities.length === 0) return;
-
-    // Get the first player's position (assuming single player game)
-    const playerEntity = playerEntities[0];
-    const playerTransform = playerEntity.getComponent('transform') as Transform;
-    const playerPosition = playerTransform.getPosition();
-
-    // Directly update AI entity targets with fresh player position
-    this.debugEntities.forEach(({ ai }) => {
-      if (ai) {
-        const target = ai.getTarget();
-        if (target && target.entity && target.entity.getId() === playerEntity.getId()) {
-          // We only read info here for potential debug display, not modify state.
-        }
-      }
-    });
   }
 
   /**
@@ -668,5 +643,19 @@ export class DebugSystem extends System implements IInputEventSubscriber {
       arrowY - headLength * Math.sin(angle + Math.PI / 6)
     );
     this.debugLayer.stroke();
+  }
+
+  /**
+   * Draws the FPS counter in the top right corner with color coding.
+   */
+  private drawFPSCounter(): void {
+    const fps = this.fps;
+    let color = '#22c55e'; // green
+    if (fps < 50) color = '#ef4444'; // red
+    else if (fps < 60) color = '#eab308'; // yellow
+    const text = `FPS: ${fps.toFixed(1)}`;
+    const x = this.canvas.getWidth() - 60; // 60px from right
+    const y = 24; // 24px from top
+    this.drawDebugBadge(text, x, y, color);
   }
 } 

@@ -67,6 +67,32 @@ ai.setState("chase"); // or 'flank', 'keepDistance', 'idle'
 ai.setTarget({ position: targetPosition, type: "player" });
 ```
 
+### DebugSystem
+
+The DebugSystem provides real-time debug overlays for ECS entities, including:
+
+- Entity outlines and labels
+- Health bars and values
+- AI state and targeting lines
+- **FPS counter in the top right corner**
+
+#### FPS Counter Feature
+
+- Displays the current frames per second (FPS) in the top right of the screen when debug mode is enabled.
+- Color-coded for performance:
+  - **Green**: 60+ FPS (target)
+  - **Yellow**: 50-60 FPS (warning)
+  - **Red**: <50 FPS (critical)
+- Uses the same badge style as other debug overlays for consistency.
+
+#### Usage Example
+
+```typescript
+// Enable debug mode to see FPS counter
+const debugSystem = new DebugSystem(canvas, inputManager);
+debugSystem.toggleDebug(); // or trigger via input (e.g., F1)
+```
+
 ## Updates and Changes
 
 ### [2024-03-19]
@@ -76,3 +102,8 @@ ai.setTarget({ position: targetPosition, type: "player" });
 - Added comprehensive documentation
 - Added InputSystem for managing input state updates
 - Improved system integration with game loop
+
+### [2024-06-09] - FPS Counter Added
+
+- Added FPS counter to DebugSystem with color-coded badge (green/yellow/red) in the top right corner.
+- FPS is visible when debug mode is enabled.

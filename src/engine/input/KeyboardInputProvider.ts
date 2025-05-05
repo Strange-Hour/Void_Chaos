@@ -137,11 +137,6 @@ export class KeyboardInputProvider implements IInputProvider {
       const normalized: Vector2 =
         magnitude > 0 ? { x: x / magnitude, y: y / magnitude } : { x: 0, y: 0 };
 
-      // Only log if there's actual input
-      if (magnitude > 0) {
-        console.log('Move Input:', { x, y, magnitude, normalized });
-      }
-
       return {
         value,
         normalized,
@@ -196,9 +191,6 @@ export class KeyboardInputProvider implements IInputProvider {
       this.pressedKeys.add(key);
       this.justPressedKeys.add(key);
       this.keyDurations.set(key, 0);
-
-      // Explicitly log the mapped action (if any)
-      this.logKeyToActionMapping(key, true);
     }
   };
 
@@ -211,9 +203,6 @@ export class KeyboardInputProvider implements IInputProvider {
     this.pressedKeys.delete(key);
     this.justReleasedKeys.add(key);
     this.keyDurations.delete(key);
-
-    // Explicitly log the mapped action (if any)
-    this.logKeyToActionMapping(key, false);
   };
 
   /**
