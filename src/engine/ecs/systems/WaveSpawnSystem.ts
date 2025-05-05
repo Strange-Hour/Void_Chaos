@@ -5,6 +5,7 @@ import { Vector2 } from '@engine/math/Vector2';
 import { Transform } from '../components/Transform';
 import { World } from '@engine/ecs/World';
 import { EnemyRegistry } from '../enemies/EnemyRegistry';
+import { EnemyManager } from '../enemies/EnemyManager';
 
 export interface WaveConfig {
   enemies: {
@@ -294,6 +295,8 @@ export class WaveSpawnSystem extends System {
 
     const enemy = EnemyFactory.createEnemy(spawnOptions);
     this.world.addEntity(enemy);
+    // --- EnemyManager integration: track all active enemies ---
+    EnemyManager.getInstance().addEnemy(enemy);
   }
 
   /**
@@ -486,5 +489,12 @@ export class WaveSpawnSystem extends System {
    */
   setDebug(enabled: boolean): void {
     this.debug = enabled;
+  }
+
+  /**
+   * Listen for all enemies defeated and trigger next wave or events
+   */
+  onAllEnemiesDefeated(callback: () => void): void {
+    EnemyManager.getInstance().onAllEnemiesDefeated(callback);
   }
 } 

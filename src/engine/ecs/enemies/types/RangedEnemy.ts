@@ -3,6 +3,7 @@ import { IEnemyTypeDefinition } from './IEnemyTypeDefinition';
 export const RangedEnemy: IEnemyTypeDefinition = {
   id: 'ranged',
   name: 'Ranged Enemy',
+  color: '#eab308',
   config: {
     speed: 100,
     health: 50,

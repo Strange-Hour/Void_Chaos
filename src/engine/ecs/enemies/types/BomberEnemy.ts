@@ -3,6 +3,7 @@ import { IEnemyTypeDefinition } from './IEnemyTypeDefinition';
 export const BomberEnemy: IEnemyTypeDefinition = {
   id: 'bomber',
   name: 'Bomber Enemy',
+  color: '#f97316',
   config: {
     speed: 120,
     health: 80,

@@ -5,6 +5,7 @@ import { IEnemyTypeDefinition } from './IEnemyTypeDefinition';
 export const BasicEnemy: IEnemyTypeDefinition = {
   id: 'basic',
   name: 'Basic Enemy',
+  color: '#ef4444',
   config: {
     speed: 150,
     health: 100,

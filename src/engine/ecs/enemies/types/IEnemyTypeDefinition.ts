@@ -3,6 +3,7 @@ import { MovementPatternDefinition } from '@engine/ecs/ai/patterns/types';
 export interface IEnemyTypeDefinition {
   id: string;
   name: string;
+  color: string;
   config: {
     speed: number;
     health: number;

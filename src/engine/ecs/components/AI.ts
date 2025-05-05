@@ -23,6 +23,7 @@ export class AI extends Component {
   private currentPatternId: string | null;
   private target: AITarget | null;
   private stateTime: number;
+  private color?: string;
 
   constructor() {
     super();
@@ -31,6 +32,7 @@ export class AI extends Component {
     this.currentPatternId = null;
     this.target = null;
     this.stateTime = 0;
+    this.color = undefined;
   }
 
   getType(): string {
@@ -190,5 +192,13 @@ export class AI extends Component {
         };
       }
     }
+  }
+
+  setColor(color: string): void {
+    this.color = color;
+  }
+
+  getColor(): string | undefined {
+    return this.color;
   }
 } 

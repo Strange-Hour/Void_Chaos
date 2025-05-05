@@ -10,6 +10,7 @@ import { Renderer } from '../components/Renderer';
 import { Enemy } from '../components/Enemy';
 import { Health } from '../components/Health';
 import { LayerName, getLayerLevel } from '@/config';
+import { EnemyManager } from '../enemies/EnemyManager';
 
 export class DebugSystem extends System implements IInputEventSubscriber {
   private canvas: Canvas;
@@ -159,6 +160,8 @@ export class DebugSystem extends System implements IInputEventSubscriber {
 
     // Draw FPS counter in top right
     this.drawFPSCounter();
+    // Draw enemy count breakdown next to FPS counter
+    this.drawEnemyCounts();
 
     // Get debug entities with fresh AI target information
     this.getFreshEntityInfo();
@@ -193,20 +196,11 @@ export class DebugSystem extends System implements IInputEventSubscriber {
 
           // Determine entity type and color scheme
           let mainColor = '#22c55e'; // Default green
-          if (entity.hasComponent('enemy')) {
-            const enemy = entity.getComponent('enemy') as Enemy;
-            switch (enemy.getEnemyTypeId()) {
-              case 'ranged':
-                mainColor = '#eab308'; // Yellow for ranged
-                break;
-              case 'flanker':
-                mainColor = '#ec4899'; // Pink for flanker
-                break;
-              case 'bomber':
-                mainColor = '#f97316'; // Orange for bomber
-                break;
-              default:
-                mainColor = '#ef4444'; // Red for basic
+          if (entity.hasComponent('ai')) {
+            const ai = entity.getComponent('ai');
+            if (ai && typeof (ai as unknown as { getColor: () => string | undefined }).getColor === 'function') {
+              const aiColor = (ai as unknown as { getColor: () => string | undefined }).getColor();
+              if (aiColor) mainColor = aiColor;
             }
           }
 
@@ -525,7 +519,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
   /**
    * Draws debug text with background
    */
-  private drawDebugText(text: string, x: number, y: number, color: string = '#fff', alpha: number = 0.85): void {
+  private drawDebugText(text: string, x: number, y: number, color: string = '#fff'): void {
     // Convert this to use the new badge system
     this.drawDebugBadge(text, x, y + 10, color);
   }
@@ -559,15 +553,18 @@ export class DebugSystem extends System implements IInputEventSubscriber {
   /**
    * Draws a modern badge with text
    */
-  private drawDebugBadge(text: string | null, x: number, y: number, color: string): void {
+  private drawDebugBadge(text: string | null, x: number, y: number, color: string, align: 'center' | 'left' = 'center'): void {
     if (!text) return;
 
     const metrics = this.debugLayer.measureText(text);
-    const padding = 6; // Reduced padding
+    const padding = 10; // Increased padding for left-aligned badges
     const height = 18; // Slightly smaller height
-
-    // Center the badge on the provided coordinates
-    const badgeX = x - metrics.width / 2 - padding;
+    let badgeX: number;
+    if (align === 'left') {
+      badgeX = x;
+    } else {
+      badgeX = x - metrics.width / 2 - padding;
+    }
     const badgeY = y - height / 2;
 
     // Draw badge background
@@ -657,5 +654,35 @@ export class DebugSystem extends System implements IInputEventSubscriber {
     const x = this.canvas.getWidth() - 60; // 60px from right
     const y = 24; // 24px from top
     this.drawDebugBadge(text, x, y, color);
+  }
+
+  /**
+   * Draws a breakdown of enemy counts by type on the left side, stacked vertically.
+   */
+  private drawEnemyCounts(): void {
+    const counts = EnemyManager.getInstance().getEnemyTypeCounts();
+    const types = Object.keys(counts);
+    if (types.length === 0) return;
+    // Start at the left side of the screen
+    const x = 25;
+    let y = 24;
+    const badgeSpacing = 28;
+    const allEnemies = Array.from(this.entities).filter(e => e.hasComponent('enemy'));
+    types.forEach(typeId => {
+      const count = counts[typeId];
+      const label = `${typeId}: ${count}`;
+      // Try to get the color from the AI component of the first enemy of this type
+      let color = '#ef4444'; // default red
+      const enemyOfType = allEnemies.find(e => e.hasComponent('enemy') && (e.getComponent('enemy') as unknown as { getEnemyTypeId: () => string }).getEnemyTypeId && (e.getComponent('enemy') as unknown as { getEnemyTypeId: () => string }).getEnemyTypeId() === typeId);
+      if (enemyOfType && enemyOfType.hasComponent('ai')) {
+        const ai = enemyOfType.getComponent('ai');
+        if (ai && typeof (ai as unknown as { getColor: () => string | undefined }).getColor === 'function') {
+          const aiColor = (ai as unknown as { getColor: () => string | undefined }).getColor();
+          if (aiColor) color = aiColor;
+        }
+      }
+      this.drawDebugBadge(label, x, y, color, 'left');
+      y += badgeSpacing;
+    });
   }
 } 

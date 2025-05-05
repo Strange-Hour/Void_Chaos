@@ -3,6 +3,7 @@ import { IEnemyTypeDefinition } from './IEnemyTypeDefinition';
 export const FlankerEnemy: IEnemyTypeDefinition = {
   id: 'flanker',
   name: 'Flanker Enemy',
+  color: '#ec4899',
   config: {
     speed: 200,
     health: 75,

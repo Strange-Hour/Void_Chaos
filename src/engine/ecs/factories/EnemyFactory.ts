@@ -107,6 +107,7 @@ export class EnemyFactory {
 
     // Add AI component
     const ai = new AI();
+    ai.setColor(definition.color);
 
     // *** Set movement patterns and initial state from definition ***
     ai.setAvailablePatterns(definition.behavior.movementPatterns);
