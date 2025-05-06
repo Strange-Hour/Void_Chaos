@@ -17,6 +17,7 @@ import { SpriteManager } from "@engine/SpriteManager";
 import { Sprite } from "@engine/Sprite";
 import { createPlayer } from "@engine/ecs/factories/PlayerFactory";
 import { GameLoop } from "@engine/core/gameLoop";
+import { createObstacle } from "@engine/ecs/factories/ObstacleFactory";
 
 interface GameWrapperProps {
   dimensions: {
@@ -97,6 +98,7 @@ export default function GameWrapper({
 
     // Create world instance
     const world = new World();
+    world.setWorldDimensions(dimensions.width, dimensions.height, 32);
     window.globalGameInstance.world = world;
 
     // Initialize game with dynamic dimensions
@@ -180,13 +182,17 @@ export default function GameWrapper({
         const characterSystem = new CharacterControllerSystem(dimensions);
         const aiBehaviorSystem = new AIBehaviorSystem();
         const renderSystem = new RenderSystem(game.getCanvas());
-        const debugSystem = new DebugSystem(game.getCanvas(), inputManager);
+        const debugSystem = new DebugSystem(
+          game.getCanvas(),
+          inputManager,
+          world
+        );
         const waveSpawnSystem = new WaveSpawnSystem(world);
         const collisionSystem = game.initializeCollisionSystem();
 
         // Configure collision system
         collisionSystem.setDebug(true);
-        collisionSystem.setResolutionStrength(0.7);
+        collisionSystem.setResolutionStrength(1.0);
         collisionSystem.setLayerCollision(1, 1, true);
         collisionSystem.setLayerCollision(1, 2, true);
         collisionSystem.setLayerCollision(2, 2, false);
@@ -280,6 +286,34 @@ export default function GameWrapper({
 
           world.addEntity(player);
         }
+
+        // --- Add obstacles for testing ---
+        const cellSize = 32; // Should match your grid cell size
+        function snapToGrid(x: number, y: number, cellSize: number) {
+          const gridX = Math.floor(x / cellSize);
+          const gridY = Math.floor(y / cellSize);
+          return {
+            x: gridX * cellSize + cellSize / 2,
+            y: gridY * cellSize + cellSize / 2,
+          };
+        }
+        // Center block
+        let pos = snapToGrid(
+          dimensions.width / 2,
+          dimensions.height / 2,
+          cellSize
+        );
+        world.addEntity(createObstacle(pos.x, pos.y, 100, 40));
+        // Left vertical wall
+        pos = snapToGrid(100, dimensions.height / 2, cellSize);
+        world.addEntity(createObstacle(pos.x, pos.y, 40, 200));
+        // Top horizontal wall
+        pos = snapToGrid(dimensions.width / 2, 100, cellSize);
+        world.addEntity(createObstacle(pos.x, pos.y, 200, 40));
+        // Diagonal block
+        pos = snapToGrid(dimensions.width / 3, dimensions.height / 3, cellSize);
+        world.addEntity(createObstacle(pos.x, pos.y, 60, 60));
+        // --- End obstacles ---
 
         // Start the game
         waveSpawnSystem.startNextWave();

@@ -11,6 +11,7 @@ import { Enemy } from '../components/Enemy';
 import { Health } from '../components/Health';
 import { LayerName, getLayerLevel } from '@/config';
 import { EnemyManager } from '../enemies/EnemyManager';
+import { World } from '../World';
 
 export class DebugSystem extends System implements IInputEventSubscriber {
   private canvas: Canvas;
@@ -33,12 +34,15 @@ export class DebugSystem extends System implements IInputEventSubscriber {
   private lastFrameTime: number = performance.now();
   private fps: number = 0;
 
-  constructor(canvas: Canvas, inputManager: InputManager) {
+  private world?: World;
+
+  constructor(canvas: Canvas, inputManager: InputManager, world?: World) {
     super(['transform', 'character-controller']);
     this.canvas = canvas;
     this.debugEntities = new Map();
     this.inputManager = inputManager;
     this.inputManager.subscribe(this);
+    this.world = world;
 
     // Create debug layer using configuration
     const layer = this.canvas.createLayer(LayerName.Debug, {
@@ -150,6 +154,9 @@ export class DebugSystem extends System implements IInputEventSubscriber {
 
     // Draw debug grid
     this.drawDebugGrid();
+
+    // Draw all collider bounds (player, obstacles, enemies)
+    this.drawColliderBounds();
 
     // Save context state
     this.debugLayer.save();
@@ -437,46 +444,29 @@ export class DebugSystem extends System implements IInputEventSubscriber {
    * Draws a debug grid to help visualize the game area
    */
   private drawDebugGrid(): void {
-    const width = this.canvas.getWidth();
-    const height = this.canvas.getHeight();
-    const gridSize = 50;
 
-    this.debugLayer.save();
-    this.debugLayer.strokeStyle = 'rgba(100, 100, 100, 0.2)';
-    this.debugLayer.lineWidth = 1;
-
-    // Draw vertical lines
-    for (let x = 0; x <= width; x += gridSize) {
-      this.debugLayer.beginPath();
-      this.debugLayer.moveTo(x, 0);
-      this.debugLayer.lineTo(x, height);
-      this.debugLayer.stroke();
+    // Draw pathfinding grid if world and grid are available
+    if (this.world && this.world.getGrid) {
+      const grid = this.world.getGrid();
+      const cellSize = grid.getCellSize();
+      const gridWidth = grid.getWidth();
+      const gridHeight = grid.getHeight();
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          const wx = x * cellSize;
+          const wy = y * cellSize;
+          if (!grid.isWalkable(x, y)) {
+            // Blocked cell: draw a semi-transparent red overlay
+            this.debugLayer.fillStyle = 'rgba(239, 68, 68, 0.35)';
+            this.debugLayer.fillRect(wx, wy, cellSize, cellSize);
+          }
+          // Optionally, draw a border for all cells
+          this.debugLayer.strokeStyle = 'rgba(100, 100, 100, 0.15)';
+          this.debugLayer.lineWidth = 1;
+          this.debugLayer.strokeRect(wx, wy, cellSize, cellSize);
+        }
+      }
     }
-
-    // Draw horizontal lines
-    for (let y = 0; y <= height; y += gridSize) {
-      this.debugLayer.beginPath();
-      this.debugLayer.moveTo(0, y);
-      this.debugLayer.lineTo(width, y);
-      this.debugLayer.stroke();
-    }
-
-    // Draw center cross
-    this.debugLayer.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-    this.debugLayer.lineWidth = 2;
-
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    this.debugLayer.beginPath();
-    this.debugLayer.moveTo(centerX - 10, centerY);
-    this.debugLayer.lineTo(centerX + 10, centerY);
-    this.debugLayer.stroke();
-
-    this.debugLayer.beginPath();
-    this.debugLayer.moveTo(centerX, centerY - 10);
-    this.debugLayer.lineTo(centerX, centerY + 10);
-    this.debugLayer.stroke();
 
     this.debugLayer.restore();
   }
@@ -683,6 +673,38 @@ export class DebugSystem extends System implements IInputEventSubscriber {
       }
       this.drawDebugBadge(label, x, y, color, 'left');
       y += badgeSpacing;
+    });
+  }
+
+  /**
+   * Draws rectangles for all colliders in the world for debug purposes
+   */
+  private drawColliderBounds(): void {
+    if (!this.world) return;
+    const entities = this.world.getEntities();
+    entities.forEach(entity => {
+      if (entity.hasComponent('collider') && entity.hasComponent('transform')) {
+        const collider = entity.getComponent('collider') as import('../components/Collider').Collider;
+        const transform = entity.getComponent('transform') as import('../components/Transform').Transform;
+        if (!collider || !transform) return;
+        const bounds = collider.getBounds();
+        const pos = transform.getPosition();
+        const x = pos.x + bounds.offset.x;
+        const y = pos.y + bounds.offset.y;
+        // Color: static (obstacle) = blue, dynamic = lime
+        const color = collider.isStaticCollider() ? 'rgba(59,130,246,0.4)' : 'rgba(16,185,129,0.4)';
+        // Outline: static = blue, dynamic = lime
+        const outline = collider.isStaticCollider() ? '#3b82f6' : '#10b981';
+        this.debugLayer.save();
+        this.debugLayer.fillStyle = color;
+        this.debugLayer.strokeStyle = outline;
+        this.debugLayer.lineWidth = 2;
+        this.debugLayer.beginPath();
+        this.debugLayer.rect(x, y, bounds.width, bounds.height);
+        this.debugLayer.fill();
+        this.debugLayer.stroke();
+        this.debugLayer.restore();
+      }
     });
   }
 } 

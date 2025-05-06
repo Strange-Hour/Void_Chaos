@@ -1,5 +1,5 @@
 import { EnemyFactory, EnemySpawnOptions } from './EnemyFactory';
-import { Enemy, EnemyType } from '../components/Enemy';
+import { Enemy } from '../components/Enemy';
 import { Transform } from '../components/Transform';
 import { AI } from '../components/AI';
 import { Health } from '../components/Health';
@@ -23,7 +23,7 @@ describe('EnemyFactory', () => {
 
       // Check enemy type
       const enemyComponent = enemy.getComponent('enemy') as Enemy;
-      expect(enemyComponent.getEnemyType()).toBe(EnemyType.Basic);
+      expect(enemyComponent.getEnemyTypeId()).toBe('basic');
 
       // Check position
       const transform = enemy.getComponent('transform') as Transform;
@@ -46,33 +46,33 @@ describe('EnemyFactory', () => {
 
       // Check AI configuration
       const ai = enemy.getComponent('ai') as AI;
-      expect(ai.getCurrentState()).toBe('chase');
-      expect(ai.getBehavior('chase')).toBeDefined();
-      expect(ai.getBehavior('idle')).toBeDefined();
+      expect(ai.getCurrentPatternId()).toBe('chase');
+      expect(ai.getAvailablePatterns()['chase']).toBeDefined();
+      expect(ai.getAvailablePatterns()['idle']).toBeDefined();
     });
 
     it('should create different enemy types with correct configurations', () => {
-      const types = [EnemyType.Basic, EnemyType.Flanker, EnemyType.Ranged];
-      const expectedStates = ['chase', 'chase', 'keepDistance'];
+      const types = ['basic', 'flanker', 'ranged'];
+      const expectedStates = ['chase', 'flank', 'keep_distance'];
 
-      types.forEach((type, index) => {
+      types.forEach((typeId, index) => {
         const enemy = EnemyFactory.createEnemy({
           ...defaultSpawnOptions,
-          type,
+          typeId,
         });
 
         const enemyComponent = enemy.getComponent('enemy') as Enemy;
-        expect(enemyComponent.getEnemyType()).toBe(type);
+        expect(enemyComponent.getEnemyTypeId()).toBe(typeId);
 
         const ai = enemy.getComponent('ai') as AI;
-        expect(ai.getCurrentState()).toBe(expectedStates[index]);
+        expect(ai.getCurrentPatternId()).toBe(expectedStates[index]);
       });
     });
 
     it('should set AI target when provided', () => {
       const options: EnemySpawnOptions = {
         ...defaultSpawnOptions,
-        aiTarget: { x: 300, y: 400, type: 'player' },
+        aiTarget: { x: 300, y: 400 },
       };
 
       const enemy = EnemyFactory.createEnemy(options);
@@ -81,23 +81,51 @@ describe('EnemyFactory', () => {
 
       expect(target).toBeDefined();
       expect(target?.position).toEqual({ x: 300, y: 400 });
-      expect(target?.type).toBe('player');
     });
 
     it('should create enemies with type-specific health values', () => {
-      const types = [EnemyType.Basic, EnemyType.Flanker, EnemyType.Ranged];
+      const types = ['basic', 'flanker', 'ranged'];
       const expectedHealth = [100, 75, 50];
 
-      types.forEach((type, index) => {
+      types.forEach((typeId, index) => {
         const enemy = EnemyFactory.createEnemy({
           ...defaultSpawnOptions,
-          type,
+          typeId,
         });
 
         const health = enemy.getComponent('health') as Health;
         expect(health.getMaxHealth()).toBe(expectedHealth[index]);
         expect(health.getCurrentHealth()).toBe(expectedHealth[index]);
       });
+    });
+
+    it('should set the correct color on the AI component for each enemy type', () => {
+      const typeColorMap = {
+        basic: '#ef4444',
+        flanker: '#ec4899',
+        ranged: '#eab308',
+        bomber: '#f97316',
+      };
+      Object.entries(typeColorMap).forEach(([typeId, expectedColor]) => {
+        const enemy = EnemyFactory.createEnemy({
+          position: { x: 0, y: 0 },
+          typeId,
+        });
+        const ai = enemy.getComponent('ai') as AI;
+        expect(ai).toBeDefined();
+        expect(ai.getColor()).toBe(expectedColor);
+      });
+    });
+
+    it('should return an empty entity and log an error for unknown type', () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => { });
+      const enemy = EnemyFactory.createEnemy({
+        position: { x: 0, y: 0 },
+        typeId: 'unknown_type',
+      });
+      expect(enemy.getComponent('enemy')).toBeUndefined();
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('Failed to create enemy: Type definition not found'));
+      spy.mockRestore();
     });
   });
 }); 
