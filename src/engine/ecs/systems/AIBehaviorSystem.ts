@@ -10,6 +10,8 @@ import {
   IRetreatPattern,
   IFlankPattern
 } from '../ai/patterns/types';
+import { Pathfinding } from '../pathfinding/Grid';
+import { World } from '../World';
 
 interface AIEntity {
   entity: Entity;
@@ -26,10 +28,14 @@ interface PlayerEntity {
 export class AIBehaviorSystem extends System {
   private aiEntities: AIEntity[] = [];
   private playerEntities: PlayerEntity[] = [];
+  // Add path cache for each AI entity
+  private pathCache: WeakMap<Entity, { path: Array<{ x: number, y: number }>, waypointIndex: number, lastEnemyCell: { x: number, y: number }, lastTargetCell: { x: number, y: number }, lastKnownPlayerCell: { x: number, y: number } }> = new WeakMap();
+  private world?: World;
 
-  constructor() {
+  constructor(world?: World) {
     // Only require transform as it's common to both AI and players
     super(['transform']);
+    this.world = world;
   }
 
   /**
@@ -156,70 +162,83 @@ export class AIBehaviorSystem extends System {
 
     const activePlayer = this.playerEntities[0];
     const playerPosition = activePlayer.transform.getPosition();
+    const grid = this.world?.getGrid();
+    const cellSize = grid?.getCellSize() ?? 32;
 
     this.aiEntities.forEach(({ entity, ai, transform, controller }) => {
       let target = ai.getTarget();
       let targetPosition: Vector2 | null = null;
-
-      if (!target || !target.entity || target.entity.getId() !== activePlayer.entity.getId()) {
-        target = { position: { ...playerPosition }, entity: activePlayer.entity };
-        ai.setTarget(target);
-      } else {
-        const storedTargetPos = target.position;
-        const dx = storedTargetPos.x - playerPosition.x;
-        const dy = storedTargetPos.y - playerPosition.y;
-        const squaredDistance = dx * dx + dy * dy;
-        const MIN_UPDATE_DIST_SQ = 0.1 * 0.1;
-
-        if (squaredDistance > MIN_UPDATE_DIST_SQ) {
-          storedTargetPos.x = playerPosition.x;
-          storedTargetPos.y = playerPosition.y;
-        }
-      }
-
+      // Always set the target to the player
+      target = { position: { ...playerPosition }, entity: activePlayer.entity };
+      ai.setTarget(target);
       targetPosition = target.position;
-      const patternDef = ai.getCurrentPatternDefinition();
-
-      if (!patternDef || (patternDef.targetType === 'player' && !targetPosition)) {
+      const position = transform.getPosition();
+      if (grid && targetPosition) {
+        const enemyCell = grid.worldToGrid(position.x, position.y);
+        const targetCell = grid.worldToGrid(targetPosition.x, targetPosition.y);
+        let cache = this.pathCache.get(entity);
+        // Track last known player cell
+        if (!cache) {
+          cache = {
+            path: [],
+            waypointIndex: 0,
+            lastEnemyCell: { ...enemyCell },
+            lastTargetCell: { ...targetCell },
+            lastKnownPlayerCell: { ...targetCell }
+          };
+        }
+        // If player cell is visible, update last known
+        if (grid.isWalkable(targetCell.x, targetCell.y)) {
+          cache.lastKnownPlayerCell = { ...targetCell };
+        }
+        // Try to pathfind to player
+        let path = Pathfinding.findPath(grid, enemyCell, targetCell);
+        let searching = false;
+        if (path.length <= 1) {
+          // Can't reach player, try last known player cell
+          path = Pathfinding.findPath(grid, enemyCell, cache.lastKnownPlayerCell);
+          searching = true;
+        }
+        this.pathCache.set(entity, {
+          ...cache,
+          path,
+          waypointIndex: 0,
+          lastEnemyCell: { ...enemyCell },
+          lastTargetCell: { ...targetCell },
+          lastKnownPlayerCell: { ...cache.lastKnownPlayerCell }
+        });
+        cache = this.pathCache.get(entity);
+        if (cache && cache.path.length > 1 && cache.waypointIndex < cache.path.length) {
+          // Move toward next waypoint
+          const nextWaypoint = cache.path[cache.waypointIndex + 1] || cache.path[cache.waypointIndex];
+          const waypointWorld = grid.gridToWorld(nextWaypoint.x, nextWaypoint.y);
+          const dx = waypointWorld.x - position.x;
+          const dy = waypointWorld.y - position.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const threshold = cellSize * 0.2;
+          let moveDir = { x: 0, y: 0 };
+          if (dist > threshold) {
+            moveDir = { x: dx / dist, y: dy / dist };
+          } else {
+            cache.waypointIndex++;
+          }
+          controller.setMoveDirection(moveDir);
+          controller.setAimDirection(moveDir);
+        } else {
+          // If already at last known player cell, idle (future: wander)
+          if (searching && enemyCell.x === cache.lastKnownPlayerCell.x && enemyCell.y === cache.lastKnownPlayerCell.y) {
+            controller.setMoveDirection({ x: 0, y: 0 });
+            controller.setAimDirection({ x: 1, y: 0 });
+            // TODO: Add random wandering or patrolling here
+          } else {
+            controller.setMoveDirection({ x: 0, y: 0 });
+            controller.setAimDirection({ x: 1, y: 0 });
+          }
+        }
+      } else {
         controller.setMoveDirection({ x: 0, y: 0 });
         controller.setAimDirection({ x: 1, y: 0 });
-        ai.update(dtMillis);
-        return;
       }
-
-      const position = transform.getPosition();
-      let distanceToTarget = 0;
-      let directionToTarget: Vector2 = { x: 1, y: 0 };
-
-      if (targetPosition && patternDef.targetType === 'player') {
-        distanceToTarget = this.getDistance(position, targetPosition);
-        directionToTarget = this.getDirection(position, targetPosition);
-      }
-
-      switch (patternDef.type) {
-        case 'chase':
-          this.updateChaseState(controller, directionToTarget, patternDef as IChasePattern);
-          break;
-        case 'flank':
-          if (targetPosition) {
-            this.updateFlankState(controller, position, targetPosition, directionToTarget, patternDef as IFlankPattern);
-          }
-          break;
-        case 'retreat':
-          if (targetPosition) {
-            this.updateKeepDistanceState(controller, distanceToTarget, directionToTarget, patternDef as IRetreatPattern);
-          }
-          break;
-        case 'idle':
-        default:
-          controller.setMoveDirection({ x: 0, y: 0 });
-          break;
-      }
-
-      if (targetPosition) {
-        controller.setAimDirection(directionToTarget);
-      }
-
       ai.update(dtMillis);
     });
   }
@@ -230,8 +249,7 @@ export class AIBehaviorSystem extends System {
 
   private updateChaseState(
     controller: CharacterController,
-    directionToTarget: Vector2,
-    patternDef: IChasePattern
+    directionToTarget: Vector2
   ): void {
     controller.setMoveDirection(directionToTarget);
   }
@@ -240,8 +258,7 @@ export class AIBehaviorSystem extends System {
     controller: CharacterController,
     position: Vector2,
     targetPosition: Vector2,
-    directionToTarget: Vector2,
-    patternDef: IFlankPattern
+    directionToTarget: Vector2
   ): void {
     const flankWeight = patternDef.flankWeight ?? 0.3;
     const perpendicularDir = { x: -directionToTarget.y, y: directionToTarget.x };
@@ -269,10 +286,7 @@ export class AIBehaviorSystem extends System {
   }
 
   private updateKeepDistanceState(
-    controller: CharacterController,
-    distanceToTarget: number,
-    directionToTarget: Vector2,
-    patternDef: IRetreatPattern
+    controller: CharacterController
   ): void {
     const optimalDistance = patternDef.idealDistance;
     const followThreshold = patternDef.followThreshold;

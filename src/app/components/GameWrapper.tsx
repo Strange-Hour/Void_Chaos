@@ -180,7 +180,7 @@ export default function GameWrapper({
         // Create and initialize all game systems
         const inputSystem = new InputSystem(inputManager);
         const characterSystem = new CharacterControllerSystem(dimensions);
-        const aiBehaviorSystem = new AIBehaviorSystem();
+        const aiBehaviorSystem = new AIBehaviorSystem(world);
         const renderSystem = new RenderSystem(game.getCanvas());
         const debugSystem = new DebugSystem(
           game.getCanvas(),
