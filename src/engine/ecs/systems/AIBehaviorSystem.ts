@@ -220,6 +220,9 @@ export class AIBehaviorSystem extends System {
                 if (typeId === 'ranged') patrolRadius = RangedEnemy.patrolRadius ?? patrolRadius;
               }
             }
+            // Set debug flag for searching state
+            (entity as any).__isSearching = true;
+            (entity as any).__patrolRadius = patrolRadius;
             // Pick a random walkable cell within patrolRadius
             const possibleCells: Array<{ x: number, y: number }> = [];
             const center = cache.lastKnownPlayerCell;
@@ -241,6 +244,10 @@ export class AIBehaviorSystem extends System {
               cache.wanderTarget = wanderTarget;
               path = Pathfinding.findPath(grid, enemyCell, wanderTarget);
             }
+          } else {
+            // Not searching
+            (entity as any).__isSearching = false;
+            (entity as any).__patrolRadius = undefined;
           }
         } else {
           cache.wanderTarget = undefined; // Clear wander target if player is found

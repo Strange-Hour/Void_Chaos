@@ -7,11 +7,16 @@ import { Canvas } from '@engine/Canvas';
 import { InputManager } from '../../input/InputManager';
 import { InputAction, IInputEventSubscriber } from '../../input/types';
 import { Renderer } from '../components/Renderer';
-import { Enemy } from '../components/Enemy';
 import { Health } from '../components/Health';
 import { LayerName, getLayerLevel } from '@/config';
 import { EnemyManager } from '../enemies/EnemyManager';
 import { World } from '../World';
+
+// Helper type for debug search state
+interface DebugSearchState {
+  __isSearching?: boolean;
+  __patrolRadius?: number;
+}
 
 export class DebugSystem extends System implements IInputEventSubscriber {
   private canvas: Canvas;
@@ -211,6 +216,20 @@ export class DebugSystem extends System implements IInputEventSubscriber {
             }
           }
 
+          // Typed debug search state
+          const debugState = entity as unknown as DebugSearchState;
+          // --- Draw search radius if in searching state ---
+          if (debugState.__isSearching && debugState.__patrolRadius) {
+            this.debugLayer.save();
+            this.debugLayer.globalAlpha = 0.18;
+            this.debugLayer.strokeStyle = mainColor;
+            this.debugLayer.lineWidth = 2;
+            this.debugLayer.beginPath();
+            this.debugLayer.arc(position.x, position.y, debugState.__patrolRadius, 0, 2 * Math.PI);
+            this.debugLayer.stroke();
+            this.debugLayer.restore();
+          }
+
           if (!sprite.isReady()) {
             // Draw loading state
             this.drawEntityOutline(drawX, drawY, dimensions.width, dimensions.height, '#94a3b8', true);
@@ -222,19 +241,19 @@ export class DebugSystem extends System implements IInputEventSubscriber {
             // Calculate base spacing
             const verticalSpacing = 24; // Spacing between elements
             const horizontalOffset = dimensions.width * 1.8; // Side distance
-            const nameOffset = dimensions.height / 2 + 16; // Small gap above entity
             const bottomOffset = dimensions.height / 2 + 16; // Distance below entity
 
             // Entity type (just above entity, centered)
             const entityType = entity.hasComponent('enemy')
-              ? (entity.getComponent('enemy') as Enemy).getEnemyTypeId()
+              ? (entity.getComponent('enemy') as { id?: string }).id || 'enemy'
               : (entity.hasComponent('player') ? 'player' : 'unknown');
 
-            // Draw entity type just above the entity
+            // Show 'searching' badge if in searching state
+            const badgeText = debugState.__isSearching ? 'searching' : entityType;
             this.drawDebugBadge(
-              entityType,
+              badgeText,
               position.x,
-              position.y - nameOffset,
+              position.y - (dimensions.height / 2 + 16),
               mainColor
             );
 
