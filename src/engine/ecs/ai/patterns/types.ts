@@ -1,4 +1,18 @@
 /**
+ * Movement Pattern System Types
+ *
+ * This module defines the types and interfaces for the extensible AI movement pattern system.
+ * Each movement pattern (e.g., chase, retreat, flank, idle) is implemented as a class conforming to IMovementPattern.
+ * Enemies use a state machine to switch between movement states, each associated with a pattern and transition logic.
+ *
+ * To add a new pattern, implement IMovementPattern and register it in the pattern registry.
+ * To add a new state, update the enemy's movementStateMachine definition and (optionally) transition logic in the AI system.
+ */
+import { Entity } from '@engine/ecs/Entity';
+import { Vector2 } from '@engine/math/Vector2';
+import { Grid } from '@engine/ecs/pathfinding/Grid';
+
+/**
  * Base interface for all movement pattern definitions.
  */
 export interface IMovementPatternDefinition {
@@ -6,7 +20,7 @@ export interface IMovementPatternDefinition {
    * The type of movement pattern (e.g., 'chase', 'retreat').
    * Used to determine which logic to apply in the AI system.
    */
-  type: 'chase' | 'retreat' | 'flank' | 'idle';
+  type: 'chase' | 'retreat' | 'flank' | 'idle' | 'search';
   /**
    * The type of entity this pattern should target (e.g., 'player').
    * Can be extended later for other target types (e.g., 'structure', 'other_enemy').
@@ -83,10 +97,79 @@ export interface IIdlePattern extends IMovementPatternDefinition {
 }
 
 /**
+ * Definition for a 'search' movement pattern.
+ * Wanders within a radius of the last known player position.
+ */
+export interface ISearchPattern extends IMovementPatternDefinition {
+  type: 'search';
+  /**
+   * The radius (in world units) to search around the last known player position.
+   * If not provided, will use the enemy's patrolRadius or detectionRange.
+   */
+  searchRadius?: number;
+  /**
+   * How long (ms) to search before giving up (optional).
+   */
+  searchTimeoutMs?: number;
+}
+
+/**
  * Union type for all possible movement pattern definitions.
  */
 export type MovementPatternDefinition =
   | IChasePattern
   | IRetreatPattern
   | IFlankPattern
-  | IIdlePattern; 
+  | IIdlePattern
+  | ISearchPattern;
+
+/**
+ * The type of movement state for an enemy (e.g., chase, search, retreat, etc.)
+ */
+export type MovementStateType = 'chase' | 'search' | 'retreat' | 'flank' | 'idle';
+
+/**
+ * Associates a movement state with a movement pattern definition.
+ */
+export interface MovementStateDefinition {
+  state: MovementStateType;
+  pattern: MovementPatternDefinition;
+}
+
+/**
+ * State machine definition for enemy movement.
+ * - initial: the starting state
+ * - states: all available states and their patterns
+ */
+export interface EnemyMovementStateMachine {
+  initial: MovementStateType;
+  states: MovementStateDefinition[];
+}
+
+/**
+ * Runtime interface for a movement pattern implementation.
+ * Each pattern class must implement this interface.
+ */
+export interface IMovementPattern {
+  /**
+   * Calculate the next movement direction for an entity.
+   * @param entity The enemy entity
+   * @param target The target entity (e.g., player)
+   * @param context Additional context (e.g., grid, world, etc.)
+   * @returns A normalized Vector2 direction
+   */
+  getMoveDirection(
+    entity: Entity,
+    target: Entity,
+    context: MovementPatternContext
+  ): Vector2;
+}
+
+/**
+ * Context object passed to movement patterns for additional information (e.g., grid, world, etc.).
+ */
+export interface MovementPatternContext {
+  grid: Grid;
+  // Optional: expose the computed path for debug visualization
+  debugPath?: Vector2[];
+} 

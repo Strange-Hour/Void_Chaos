@@ -24,6 +24,7 @@ export class AI extends Component {
   private target: AITarget | null;
   private stateTime: number;
   private color?: string;
+  private currentPath: Vector2[] = [];
 
   constructor() {
     super();
@@ -200,5 +201,19 @@ export class AI extends Component {
 
   getColor(): string | undefined {
     return this.color;
+  }
+
+  /**
+   * Set the current path (for debug visualization)
+   */
+  setCurrentPath(path: Vector2[]): void {
+    this.currentPath = path;
+  }
+
+  /**
+   * Get the current path (for debug visualization)
+   */
+  getCurrentPath(): Vector2[] {
+    return this.currentPath;
   }
 } 

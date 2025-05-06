@@ -294,17 +294,6 @@ if (enemy.canAttack(currentTime)) {
 enemy.takeDamage(20);
 ```
 
-### Updates and Changes
-
-### [2024-03-XX] - Task #4.1
-
-- Added Enemy component with three enemy types
-- Implemented health and damage system
-- Added attack cooldown mechanics
-- Added score values for different enemy types
-- Added serialization support
-- Created comprehensive test coverage
-
 ## Factory System
 
 ### EnemyFactory (`factories/EnemyFactory.ts`)

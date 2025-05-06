@@ -138,43 +138,6 @@ const combatController = {
 inputManager.subscribe(combatController);
 ```
 
-## Updates and Changes
-
-### [2024-03-19] - Task #3.2
-
-- Added keyboard input provider with WASD/Arrow key support
-- Added mouse input provider with aim and click support
-- Implemented comprehensive test suites for both providers
-- Features added:
-  - Multiple key bindings
-  - Mouse position tracking
-  - Normalized aim vectors
-  - Movement delta tracking
-  - Canvas-relative coordinates
-  - Context menu handling
-
-### [2024-03-19] - Task #3.1
-
-- Added core input system types and interfaces
-- Implemented InputManager with support for multiple providers
-- Added input buffering system
-- Created comprehensive test suite
-- Features added:
-  - Multi-provider support
-  - Input action mapping
-  - Input buffering
-  - Event system
-  - Axis and button handling
-  - Normalized vector support
-
-### [2024-03-19] - Task #3.3
-
-- Added TouchInputProvider for mobile device support
-- Implemented virtual joysticks for movement and aiming
-- Added touch input configuration options
-- Added comprehensive test coverage for touch input
-- Updated documentation with touch input details
-
 ## Best Practices
 
 1. Always dispose input providers when no longer needed

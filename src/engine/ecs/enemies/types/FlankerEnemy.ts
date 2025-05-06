@@ -1,4 +1,5 @@
 import { IEnemyTypeDefinition } from './IEnemyTypeDefinition';
+import { MovementStateType, MovementPatternDefinition } from '@engine/ecs/ai/patterns/types';
 
 export const FlankerEnemy: IEnemyTypeDefinition = {
   id: 'flanker',
@@ -14,13 +15,16 @@ export const FlankerEnemy: IEnemyTypeDefinition = {
   },
   behavior: {
     attackCooldown: 1000,
-
-    movementPatterns: {
-      'flank': { type: 'flank', targetType: 'player', flankWeight: 0.4, idealDistance: 100, distanceMargin: 50 },
-      'chase': { type: 'chase', targetType: 'player' }
-    },
-
-    initialPatternId: 'flank',
+    movementPatterns: {},
+    initialPatternId: '',
+  },
+  movementStateMachine: {
+    initial: 'flank' as MovementStateType,
+    states: [
+      { state: 'flank', pattern: { type: 'flank', targetType: 'player', flankWeight: 0.4, idealDistance: 100, distanceMargin: 50 } as MovementPatternDefinition },
+      { state: 'search', pattern: { type: 'search', searchRadius: 160 } as MovementPatternDefinition },
+      { state: 'chase', pattern: { type: 'chase', targetType: 'player' } as MovementPatternDefinition },
+    ],
   },
   patrolRadius: 160,
 }; 

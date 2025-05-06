@@ -1,4 +1,5 @@
 import { IEnemyTypeDefinition } from './IEnemyTypeDefinition';
+import { MovementStateType, MovementPatternDefinition } from '@engine/ecs/ai/patterns/types';
 
 export const RangedEnemy: IEnemyTypeDefinition = {
   id: 'ranged',
@@ -14,14 +15,16 @@ export const RangedEnemy: IEnemyTypeDefinition = {
   },
   behavior: {
     attackCooldown: 1000,
-
-    movementPatterns: {
-      'keep_distance': { type: 'retreat', targetType: 'player', idealDistance: 350, followThreshold: 500, distanceMargin: 100 },
-      'flee': { type: 'retreat', targetType: 'player', idealDistance: 450, followThreshold: 600, distanceMargin: 50 },
-      'idle': { type: 'idle' }
-    },
-
-    initialPatternId: 'keep_distance',
+    movementPatterns: {},
+    initialPatternId: '',
+  },
+  movementStateMachine: {
+    initial: 'retreat' as MovementStateType,
+    states: [
+      { state: 'retreat', pattern: { type: 'retreat', targetType: 'player', idealDistance: 350, followThreshold: 500, distanceMargin: 100 } as MovementPatternDefinition },
+      { state: 'search', pattern: { type: 'search', searchRadius: 192 } as MovementPatternDefinition },
+      { state: 'idle', pattern: { type: 'idle' } as MovementPatternDefinition },
+    ],
   },
   patrolRadius: 192,
 }; 

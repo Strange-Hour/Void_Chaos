@@ -327,15 +327,13 @@ export class DebugSystem extends System implements IInputEventSubscriber {
               rightY += verticalSpacing;
 
               if (target) {
-                // Draw target line
-                this.drawTargetLine(
-                  position.x,
-                  position.y,
-                  target.position.x,
-                  target.position.y,
-                  mainColor
-                );
-
+                // Draw path line instead of direct target line
+                if (ai && typeof ai.getCurrentPath === 'function') {
+                  const path = ai.getCurrentPath();
+                  if (Array.isArray(path) && path.length > 1) {
+                    this.drawPathLine(path, mainColor);
+                  }
+                }
                 // Target coordinates
                 this.drawDebugBadge(
                   `${target.position.x.toFixed(0)}, ${target.position.y.toFixed(0)}`,
@@ -725,5 +723,24 @@ export class DebugSystem extends System implements IInputEventSubscriber {
         this.debugLayer.restore();
       }
     });
+  }
+
+  /**
+   * Draws a polyline representing the AI path
+   */
+  private drawPathLine(path: { x: number; y: number }[], color: string): void {
+    if (!path || path.length < 2) return;
+    this.debugLayer.save();
+    this.debugLayer.strokeStyle = color;
+    this.debugLayer.lineWidth = 2;
+    this.debugLayer.setLineDash([8, 4]);
+    this.debugLayer.beginPath();
+    this.debugLayer.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i++) {
+      this.debugLayer.lineTo(path[i].x, path[i].y);
+    }
+    this.debugLayer.stroke();
+    this.debugLayer.setLineDash([]);
+    this.debugLayer.restore();
   }
 } 

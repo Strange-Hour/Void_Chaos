@@ -109,12 +109,18 @@ export class EnemyFactory {
     const ai = new AI();
     ai.setColor(definition.color);
 
-    // *** Set movement patterns and initial state from definition ***
-    ai.setAvailablePatterns(definition.behavior.movementPatterns);
-    ai.setCurrentPatternId(definition.behavior.initialPatternId);
 
-    // Remove old state setting
-    // ai.setState(enemyComponent.getDefaultState() as AIState);
+    // Extract available patterns from movementStateMachine.states
+    const stateMachine = definition.movementStateMachine;
+    const patterns: Record<string, import('@engine/ecs/ai/patterns/types').MovementPatternDefinition> = {};
+    if (stateMachine && Array.isArray(stateMachine.states)) {
+      for (const state of stateMachine.states) {
+        patterns[state.state] = state.pattern;
+      }
+    }
+    ai.setAvailablePatterns(patterns);
+    ai.setCurrentPatternId(stateMachine?.initial || null);
+
 
     // Set initial target if provided
     if (options.aiTarget) {

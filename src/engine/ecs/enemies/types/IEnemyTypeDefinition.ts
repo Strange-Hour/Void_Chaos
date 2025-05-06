@@ -1,4 +1,4 @@
-import { MovementPatternDefinition } from '@engine/ecs/ai/patterns/types';
+import { MovementPatternDefinition, EnemyMovementStateMachine } from '@engine/ecs/ai/patterns/types';
 
 export interface IEnemyTypeDefinition {
   id: string;
@@ -33,4 +33,5 @@ export interface IEnemyTypeDefinition {
    * If set, the enemy will only wander within this distance of the last known player position when searching.
    */
   patrolRadius?: number;
+  movementStateMachine: EnemyMovementStateMachine;
 } 
