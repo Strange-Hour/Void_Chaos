@@ -236,21 +236,8 @@ export default function GameWrapper({
 
         const waveConfig = [
           {
-            enemies: [
-              { typeId: "basic", count: 5 },
-              { typeId: "flanker", count: 2 },
-            ],
+            enemies: [{ typeId: "basic", count: 3 }],
             spawnDelay: 2000,
-            waveDelay: 5000,
-          },
-          {
-            enemies: [
-              { typeId: "basic", count: 5 },
-              { typeId: "bomber", count: 4 },
-              { typeId: "flanker", count: 3 },
-              { typeId: "ranged", count: 2 },
-            ],
-            spawnDelay: 1500,
             waveDelay: 5000,
           },
         ];

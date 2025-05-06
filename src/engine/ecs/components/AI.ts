@@ -1,6 +1,7 @@
 import { Component, Entity } from '../Entity';
 import { Vector2 } from '../../math/Vector2';
 import { MovementPatternDefinition } from '../ai/patterns/types';
+import { IStateMachine } from '../ai/patterns/types';
 
 export interface AIBehavior {
   name: string;
@@ -25,8 +26,9 @@ export class AI extends Component {
   private stateTime: number;
   private color?: string;
   private currentPath: Vector2[] = [];
+  private stateMachine?: IStateMachine;
 
-  constructor() {
+  constructor(stateMachine?: IStateMachine) {
     super();
     this.behaviors = new Map();
     this.availablePatterns = {};
@@ -34,6 +36,7 @@ export class AI extends Component {
     this.target = null;
     this.stateTime = 0;
     this.color = undefined;
+    this.stateMachine = stateMachine;
   }
 
   getType(): string {
@@ -215,5 +218,23 @@ export class AI extends Component {
    */
   getCurrentPath(): Vector2[] {
     return this.currentPath;
+  }
+
+  setStateMachine(stateMachine: IStateMachine): void {
+    this.stateMachine = stateMachine;
+  }
+
+  getStateMachine(): IStateMachine | undefined {
+    return this.stateMachine;
+  }
+
+  /**
+   * Get the current state from the state machine if present, otherwise fallback to pattern ID
+   */
+  getCurrentState(): string | null {
+    if (this.stateMachine) {
+      return this.stateMachine.getCurrentState();
+    }
+    return this.currentPatternId;
   }
 } 

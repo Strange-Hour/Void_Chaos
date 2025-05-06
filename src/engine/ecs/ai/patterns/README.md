@@ -1,16 +1,78 @@
 # AI Movement Patterns System
 
-This directory contains the extensible movement pattern system for enemy AI. Each movement pattern (e.g., chase, retreat, flank, idle) is implemented as a class, and enemies use a state machine to switch between movement states based on context. **All movement patterns that require navigation now use A\* pathfinding via the nextWaypoint provided in their context, ensuring obstacle avoidance.**
+This directory implements the extensible, state-machine-driven movement pattern system for enemy AI. Each movement pattern (e.g., chase, retreat, flank, idle, search) is a class, and enemies use a state machine to switch between movement states based on context and conditions. **All navigation patterns use A\* pathfinding for obstacle avoidance.**
 
-## Overview
+---
 
-- **Patterns**: Each file implements a movement pattern as a class conforming to `IMovementPattern`.
-- **Pattern Registry**: `index.ts` maps pattern type strings to their implementations.
-- **State Machines**: Each enemy type defines a `movementStateMachine` listing available states and their patterns.
-- **A\* Pathfinding Integration**: The AI system computes a path using the grid and A\* algorithm, passing the next waypoint to the movement pattern for obstacle-aware movement.
-- **Extensibility**: Add new patterns by creating a new file and registering it in `index.ts`.
+## Directory Structure
 
-> **Note:** The AIBehaviorSystem now delegates all movement logic to the pattern system and contains no direct movement logic for chase, flank, retreat, etc. All such logic is handled by pluggable pattern classes.
+```
+src/engine/ecs/ai/patterns/
+├── ChasePattern.ts        # Direct pursuit logic
+├── FlankPattern.ts        # Flanking/arc movement logic
+├── RetreatPattern.ts      # Maintain distance/retreat logic
+├── IdlePattern.ts         # No movement
+├── SearchPattern.ts       # Search/wander logic
+├── StateMachine.ts        # State machine implementation
+├── index.ts               # Pattern registry
+├── types.ts               # Type definitions
+├── utils/                 # Pattern utilities (distance, debug, etc.)
+│   ├── debugSearchState.ts
+│   ├── getDistanceToTarget.ts
+│   ├── getPlayerDistance.ts
+│   ├── isPlayerDetected.ts
+│   ├── lineOfSight.ts
+│   └── retreatPatternParams.ts
+├── conditions/            # Transition condition helpers
+│   ├── combinators.ts
+│   ├── distance.ts
+│   ├── lineOfSight.ts
+│   └── types.ts
+└── README.md              # This documentation
+```
+
+---
+
+## Components & Features
+
+### 1. **Movement Patterns**
+
+- **ChasePattern**: Moves directly toward the target using A\* pathfinding.
+- **FlankPattern**: Attempts to move around/behind the target, using arc and perpendicular movement, with pathfinding.
+- **RetreatPattern**: Maintains a specific distance from the target, retreating, approaching, or strafing as needed.
+- **IdlePattern**: No movement; used for waiting or stunned states.
+- **SearchPattern**: Wanders randomly within a radius of the last known player position, using pathfinding.
+
+### 2. **Pattern Registry**
+
+- `index.ts` maps pattern type strings (e.g., 'chase', 'flank') to their implementations.
+- Add new patterns by creating a file and registering it in `index.ts`.
+
+### 3. **State Machine**
+
+- `StateMachine.ts` implements a runtime state machine for enemy movement.
+- Each enemy type defines a `movementStateMachine` (see enemy type files) with:
+  - `initial`: starting state
+  - `states`: available states and their patterns
+  - `transitions`: transition rules and conditions
+
+### 4. **Transition Conditions**
+
+- Located in `conditions/` (e.g., `distance.ts`, `lineOfSight.ts`, `combinators.ts`).
+- Used to define when an enemy should switch states (e.g., lose sight of player, get too close, etc).
+
+---
+
+## Implementation Details
+
+- **Entity-Component-System (ECS):** Modular, flexible AI behaviors via ECS.
+- **State Machines:** Each enemy uses a state machine to manage movement logic, enabling dynamic switching between behaviors.
+- **Pattern-Driven AI:** Movement logic is encapsulated in pluggable pattern classes.
+- **A\* Pathfinding:** All movement patterns use A\* for obstacle avoidance.
+- **Extensibility:** Add new patterns and states with minimal code changes.
+- **Data-Driven Design:** Enemy behaviors are defined in data (state machines and pattern configs), not hardcoded.
+
+---
 
 ## Dolphin Diagram: System Flow
 
@@ -35,34 +97,49 @@ This directory contains the extensible movement pattern system for enemy AI. Eac
         |<-----------------------|                           |                           |
 ```
 
-## How It Works
+---
 
-1. **Enemy Definition**: Each enemy type specifies a `movementStateMachine` with an initial state and a list of states, each referencing a pattern.
-2. **AI System**: The AI system tracks the current state for each enemy, evaluates transitions, computes a path using A\* (if needed), and invokes the correct pattern's logic with the next waypoint.
-3. **Pattern Logic**: Each pattern receives the entity, target, and context (including grid, path, and nextWaypoint) and returns a movement direction. If a path is provided, the pattern moves toward the next waypoint for obstacle avoidance.
+## State Machine & Transitions
 
-## Adding a New Pattern
-
-1. Create a new file (e.g., `ZigZagPattern.ts`) implementing `IMovementPattern`.
-2. Register the pattern in `index.ts` with a unique key.
-3. Reference the key in enemy `movementStateMachine` definitions.
-
-## Example: Enemy State Machine (with Search)
+Each enemy type defines a state machine with states and transitions. Example:
 
 ```typescript
 movementStateMachine: {
-  initial: 'chase',
+  initial: 'idle',
   states: [
-    { state: 'chase', pattern: { type: 'chase', targetType: 'player' } },
-    { state: 'search', pattern: { type: 'search', searchRadius: 160 } },
-    { state: 'flank', pattern: { type: 'flank', targetType: 'player', flankWeight: 0.4 } },
-    { state: 'retreat', pattern: { type: 'retreat', targetType: 'player', idealDistance: 300, followThreshold: 400 } },
     { state: 'idle', pattern: { type: 'idle' } },
+    { state: 'chase', pattern: { type: 'chase', targetType: 'player' } },
+    { state: 'search', pattern: { type: 'search', searchRadius: 128 } },
+  ],
+  transitions: [
+    { from: 'idle', to: 'chase', condition: idleToChase },
+    { from: 'idle', to: 'search', condition: idleToSearch },
+    { from: 'chase', to: 'search', condition: chaseToSearch },
+    { from: 'search', to: 'idle', condition: searchToIdle },
+    { from: 'chase', to: 'idle', condition: chaseToIdle },
   ],
 }
 ```
 
-## Example: Implementing a Pattern
+### Dolphin Diagram: Example State Transitions
+
+```
++-------+     idleToChase     +-------+     chaseToSearch     +--------+
+| Idle  |------------------->| Chase |---------------------->| Search |
++-------+                    +-------+                      +--------+
+   |  ^                        |  ^                            |  ^
+   |  |                        |  |                            |  |
+   |  +------idleToSearch------+  +------chaseToIdle-----------+  +--searchToIdle--+
+```
+
+- **States:** idle, chase, search, retreat, flank, etc.
+- **Transitions:** Defined by conditions (distance, line of sight, etc).
+
+---
+
+## Usage Examples
+
+### Implementing a New Pattern
 
 ```typescript
 import { IMovementPattern, MovementPatternContext } from "./types";
@@ -85,33 +162,28 @@ export class ZigZagPattern implements IMovementPattern {
 }
 ```
 
-## Dolphin Diagram: Pattern Registry
+### Registering a Pattern
 
-```
-+-------------------+
-| Pattern Registry  |
-+-------------------+
-| 'chase'  -> ChasePattern   |
-| 'flank'  -> FlankPattern   |
-| 'retreat'-> RetreatPattern |
-| 'idle'   -> IdlePattern    |
-| ...      -> ...            |
-+-------------------+
+```typescript
+import { ZigZagPattern } from './ZigZagPattern';
+export const MovementPatternRegistry = {
+  ...,
+  'zigzag': new ZigZagPattern(),
+};
 ```
 
-## Transition Logic
+---
 
-- The AI system is responsible for determining when to switch states (e.g., chase → search if player is lost).
-- Transitions can be hardcoded or data-driven.
+## Updates and Changes
 
-## Game Development Concepts
+### [2024-06-09] - Documentation Overhaul
 
-- **Entity-Component-System (ECS):** The world is built using ECS, where entities are composed of components and updated by systems. This allows for flexible, modular AI behaviors.
-- **State Machines:** Each enemy uses a state machine to manage its movement logic, enabling dynamic switching between behaviors (chase, search, retreat, etc.).
-- **Pattern-Driven AI:** Movement logic is encapsulated in pluggable pattern classes, making it easy to add, test, and reuse behaviors.
-- **A\* Pathfinding Integration:** The AI system computes paths using the grid and A\* algorithm, and all movement patterns use the next waypoint for obstacle avoidance.
-- **Extensibility:** New movement patterns and states can be added with minimal code changes, supporting rapid iteration and experimentation.
-- **Data-Driven Design:** Enemy behaviors are defined in data (state machines and pattern configs), not hardcoded, supporting designer-friendly workflows.
+- Updated directory structure and pattern descriptions
+- Added dolphin diagrams for system flow and state transitions
+- Clarified state machine and transition logic
+- Expanded usage and extensibility documentation
+
+---
 
 ## See Also
 

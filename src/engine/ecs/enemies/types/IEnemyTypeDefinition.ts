@@ -1,4 +1,4 @@
-import { MovementPatternDefinition, EnemyMovementStateMachine } from '@engine/ecs/ai/patterns/types';
+import { EnemyMovementStateMachine } from '@engine/ecs/ai/patterns/types';
 
 export interface IEnemyTypeDefinition {
   id: string;
@@ -15,18 +15,6 @@ export interface IEnemyTypeDefinition {
   behavior: {
     attackCooldown: number;
     // Add any behavior-specific properties here
-
-    /**
-     * A record mapping unique string IDs to the movement pattern definitions
-     * available for this enemy type.
-     */
-    movementPatterns: Record<string, MovementPatternDefinition>;
-
-    /**
-     * The ID of the movement pattern this enemy should start with.
-     * Must be a key in the `movementPatterns` object.
-     */
-    initialPatternId: string;
   };
   /**
    * Optional patrol/search radius (in world units, e.g. pixels) for AI searching behavior.

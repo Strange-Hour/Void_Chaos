@@ -192,10 +192,18 @@ export class AIBehaviorSystem extends System {
       const target = { position: { ...playerPosition }, entity: activePlayer.entity };
       ai.setTarget(target);
       if (grid && target) {
-        // --- Delegation to movement pattern system ---
-        const patternDef: MovementPatternDefinition | undefined = ai.getCurrentPatternDefinition();
+        // --- State machine integration ---
+        const stateMachine = ai.getStateMachine?.();
+        let patternDef: MovementPatternDefinition | undefined;
+        if (stateMachine) {
+          stateMachine.update({ entity, ai, target: activePlayer.entity, context: { grid } });
+          patternDef = stateMachine.getCurrentPattern();
+        } else {
+          patternDef = ai.getCurrentPatternDefinition();
+        }
         const patternImpl = patternDef ? MovementPatternRegistry[patternDef.type] : undefined;
-        const patternContext: MovementPatternContext = { grid };
+        const patternContext: MovementPatternContext = stateMachine ? { grid, stateData: stateMachine.getStateData() } : { grid };
+
         let moveDir: Vector2 = { x: 0, y: 0 };
         if (patternImpl && target.entity) {
           moveDir = patternImpl.getMoveDirection(entity, target.entity, patternContext);

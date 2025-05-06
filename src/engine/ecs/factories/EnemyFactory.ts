@@ -8,6 +8,7 @@ import { Renderer } from '@engine/ecs/components/Renderer';
 import { Sprite } from '@engine/Sprite';
 import { CharacterController } from '@engine/ecs/components/CharacterController';
 import { EnemyRegistry } from '@engine/ecs/enemies/EnemyRegistry';
+import { StateMachine } from '@engine/ecs/ai/patterns/StateMachine';
 
 export interface EnemySpawnOptions {
   position: { x: number; y: number };
@@ -63,6 +64,8 @@ export class EnemyFactory {
     // Pass the potentially modified config if Enemy component uses it internally
     const enemyComponent = new Enemy(typeId); // Assuming Enemy constructor only needs typeId
     enemy.addComponent(enemyComponent);
+    // Set enemyDef property for transition conditions
+    (enemy as unknown as { enemyDef: typeof definition }).enemyDef = definition;
 
     // Add transform component
     const transform = new Transform();
@@ -109,6 +112,10 @@ export class EnemyFactory {
     const ai = new AI();
     ai.setColor(definition.color);
 
+    // Assign the state machine if present
+    if (definition.movementStateMachine) {
+      ai.setStateMachine(new StateMachine(definition.movementStateMachine));
+    }
 
     // Extract available patterns from movementStateMachine.states
     const stateMachine = definition.movementStateMachine;
@@ -121,13 +128,14 @@ export class EnemyFactory {
     ai.setAvailablePatterns(patterns);
     ai.setCurrentPatternId(stateMachine?.initial || null);
 
-
-    // Set initial target if provided
+    // Set initial target if provided, otherwise set to null (will be set by AI system)
     if (options.aiTarget) {
       ai.setTarget({
         position: { x: options.aiTarget.x, y: options.aiTarget.y },
         entity: options.aiTarget.entity
       });
+    } else {
+      ai.setTarget(null);
     }
     enemy.addComponent(ai);
 

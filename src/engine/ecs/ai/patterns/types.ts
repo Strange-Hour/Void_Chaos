@@ -11,6 +11,7 @@
 import { Entity } from '@engine/ecs/Entity';
 import { Vector2 } from '@engine/math/Vector2';
 import { Grid } from '@engine/ecs/pathfinding/Grid';
+import { AI } from '@engine/ecs/components/AI';
 
 /**
  * Base interface for all movement pattern definitions.
@@ -61,6 +62,18 @@ export interface IRetreatPattern extends IMovementPatternDefinition {
    * If not provided, AI system might use a default or simpler logic.
    */
   distanceMargin?: number;
+  /**
+   * Optional minimum distance to always maintain from the target (overrides margin if set).
+   */
+  minDistance?: number;
+  /**
+   * Optional maximum distance to maintain from the target (overrides margin if set).
+   */
+  maxDistance?: number;
+  /**
+   * Whether strafing is enabled when within the ideal distance band.
+   */
+  strafeEnabled?: boolean;
 }
 
 /**
@@ -137,13 +150,54 @@ export interface MovementStateDefinition {
 }
 
 /**
- * State machine definition for enemy movement.
+ * Transition definition for state machines.
+ * - from: source state
+ * - to: target state
+ * - condition: function that determines if the transition should occur
+ */
+export interface MovementStateTransition {
+  from: MovementStateType;
+  to: MovementStateType;
+  /**
+   * Condition function to determine if transition should occur.
+   * Receives the entity, AI, target, and context.
+   */
+  condition: (params: {
+    entity: Entity;
+    ai: AI;
+    target: Entity | null;
+    context: MovementPatternContext;
+    stateData: Record<string, unknown>;
+  }) => boolean;
+}
+
+/**
+ * State machine definition for enemy movement (with transitions).
  * - initial: the starting state
  * - states: all available states and their patterns
+ * - transitions: all possible transitions and their conditions
  */
 export interface EnemyMovementStateMachine {
   initial: MovementStateType;
   states: MovementStateDefinition[];
+  transitions: MovementStateTransition[];
+}
+
+/**
+ * Runtime interface for a movement state machine instance.
+ * Holds current state, evaluates transitions, and exposes current pattern.
+ */
+export interface IStateMachine {
+  getCurrentState(): MovementStateType;
+  getCurrentPattern(): MovementPatternDefinition;
+  update(params: {
+    entity: Entity;
+    ai: AI;
+    target: Entity | null;
+    context: MovementPatternContext;
+  }): void;
+  // Optionally, expose state data for debugging
+  getStateData(): Record<string, unknown>;
 }
 
 /**
@@ -172,4 +226,6 @@ export interface MovementPatternContext {
   grid: Grid;
   // Optional: expose the computed path for debug visualization
   debugPath?: Vector2[];
+  // Optional: state machine data for stateful patterns
+  stateData?: Record<string, unknown>;
 } 

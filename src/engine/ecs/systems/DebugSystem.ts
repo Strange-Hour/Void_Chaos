@@ -11,12 +11,8 @@ import { Health } from '../components/Health';
 import { LayerName, getLayerLevel } from '@/config';
 import { EnemyManager } from '../enemies/EnemyManager';
 import { World } from '../World';
-
-// Helper type for debug search state
-interface DebugSearchState {
-  __isSearching?: boolean;
-  __patrolRadius?: number;
-}
+import { Enemy } from '../components/Enemy';
+import { debugSearchStateMap, getEntityId } from '../ai/patterns/utils/debugSearchState';
 
 export class DebugSystem extends System implements IInputEventSubscriber {
   private canvas: Canvas;
@@ -217,15 +213,14 @@ export class DebugSystem extends System implements IInputEventSubscriber {
           }
 
           // Typed debug search state
-          const debugState = entity as unknown as DebugSearchState;
-          // --- Draw search radius if in searching state ---
-          if (debugState.__isSearching && debugState.__patrolRadius) {
+          const debugState = debugSearchStateMap.get(getEntityId(entity));
+          if (debugState && debugState.isSearching && debugState.patrolRadius) {
             this.debugLayer.save();
             this.debugLayer.globalAlpha = 0.18;
             this.debugLayer.strokeStyle = mainColor;
             this.debugLayer.lineWidth = 2;
             this.debugLayer.beginPath();
-            this.debugLayer.arc(position.x, position.y, debugState.__patrolRadius, 0, 2 * Math.PI);
+            this.debugLayer.arc(position.x, position.y, debugState.patrolRadius, 0, 2 * Math.PI);
             this.debugLayer.stroke();
             this.debugLayer.restore();
           }
@@ -244,12 +239,15 @@ export class DebugSystem extends System implements IInputEventSubscriber {
             const bottomOffset = dimensions.height / 2 + 16; // Distance below entity
 
             // Entity type (just above entity, centered)
-            const entityType = entity.hasComponent('enemy')
-              ? (entity.getComponent('enemy') as { id?: string }).id || 'enemy'
-              : (entity.hasComponent('player') ? 'player' : 'unknown');
+            let entityType: string;
+            if (entity.hasComponent('enemy')) {
+              const enemyComp = entity.getComponent('enemy') as Enemy;
+              entityType = enemyComp.getEnemyTypeId ? enemyComp.getEnemyTypeId() : 'enemy';
+            } else {
+              entityType = entity.hasComponent('player') ? 'player' : 'unknown';
+            }
 
-            // Show 'searching' badge if in searching state
-            const badgeText = debugState.__isSearching ? 'searching' : entityType;
+            const badgeText = entityType;
             this.drawDebugBadge(
               badgeText,
               position.x,
@@ -314,7 +312,7 @@ export class DebugSystem extends System implements IInputEventSubscriber {
             let rightY = position.y - dimensions.height / 2;
             if (entity.hasComponent('ai')) {
               const ai = entity.getComponent('ai') as AI;
-              const patternId = ai.getCurrentPatternId();
+              const patternId = ai.getCurrentState();
               const target = ai.getTarget();
 
               // State badge (right side, starting at entity top)

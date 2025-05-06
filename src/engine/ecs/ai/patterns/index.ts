@@ -19,4 +19,6 @@ export const MovementPatternRegistry: Record<string, IMovementPattern> = {
   'retreat': new RetreatPattern(),
   'idle': new IdlePattern(),
   'search': new SearchPattern(),
-}; 
+};
+
+export { StateMachine } from './StateMachine'; 
