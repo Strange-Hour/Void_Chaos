@@ -28,4 +28,9 @@ export interface IEnemyTypeDefinition {
      */
     initialPatternId: string;
   };
+  /**
+   * Optional patrol/search radius (in world units, e.g. pixels) for AI searching behavior.
+   * If set, the enemy will only wander within this distance of the last known player position when searching.
+   */
+  patrolRadius?: number;
 } 

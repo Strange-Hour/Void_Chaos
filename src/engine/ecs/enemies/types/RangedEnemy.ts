@@ -22,5 +22,6 @@ export const RangedEnemy: IEnemyTypeDefinition = {
     },
 
     initialPatternId: 'keep_distance',
-  }
+  },
+  patrolRadius: 192,
 }; 

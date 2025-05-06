@@ -25,5 +25,6 @@ export const BomberEnemy: IEnemyTypeDefinition = {
 
     // Set the initial pattern ID
     initialPatternId: 'chase',
-  }
+  },
+  patrolRadius: 96,
 }; 

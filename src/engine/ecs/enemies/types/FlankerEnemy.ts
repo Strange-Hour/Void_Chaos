@@ -21,5 +21,6 @@ export const FlankerEnemy: IEnemyTypeDefinition = {
     },
 
     initialPatternId: 'flank',
-  }
+  },
+  patrolRadius: 160,
 }; 

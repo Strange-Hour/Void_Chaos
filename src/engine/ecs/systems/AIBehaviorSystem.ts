@@ -12,6 +12,12 @@ import {
 } from '../ai/patterns/types';
 import { Pathfinding } from '../pathfinding/Grid';
 import { World } from '../World';
+// Add import for enemy type lookup
+import { BasicEnemy } from '../enemies/types/BasicEnemy';
+import { FlankerEnemy } from '../enemies/types/FlankerEnemy';
+import { BomberEnemy } from '../enemies/types/BomberEnemy';
+import { RangedEnemy } from '../enemies/types/RangedEnemy';
+import { IEnemyTypeDefinition } from '../enemies/types/IEnemyTypeDefinition';
 
 interface AIEntity {
   entity: Entity;
@@ -29,7 +35,7 @@ export class AIBehaviorSystem extends System {
   private aiEntities: AIEntity[] = [];
   private playerEntities: PlayerEntity[] = [];
   // Add path cache for each AI entity
-  private pathCache: WeakMap<Entity, { path: Array<{ x: number, y: number }>, waypointIndex: number, lastEnemyCell: { x: number, y: number }, lastTargetCell: { x: number, y: number }, lastKnownPlayerCell: { x: number, y: number } }> = new WeakMap();
+  private pathCache: WeakMap<Entity, { path: Array<{ x: number, y: number }>, waypointIndex: number, lastEnemyCell: { x: number, y: number }, lastTargetCell: { x: number, y: number }, lastKnownPlayerCell: { x: number, y: number }, wanderTarget?: { x: number, y: number } }> = new WeakMap();
   private world?: World;
 
   constructor(world?: World) {
@@ -184,7 +190,8 @@ export class AIBehaviorSystem extends System {
             waypointIndex: 0,
             lastEnemyCell: { ...enemyCell },
             lastTargetCell: { ...targetCell },
-            lastKnownPlayerCell: { ...targetCell }
+            lastKnownPlayerCell: { ...targetCell },
+            wanderTarget: undefined
           };
         }
         // If player cell is visible, update last known
@@ -194,10 +201,49 @@ export class AIBehaviorSystem extends System {
         // Try to pathfind to player
         let path = Pathfinding.findPath(grid, enemyCell, targetCell);
         let searching = false;
+        let wanderTarget = cache.wanderTarget;
         if (path.length <= 1) {
           // Can't reach player, try last known player cell
           path = Pathfinding.findPath(grid, enemyCell, cache.lastKnownPlayerCell);
           searching = true;
+          // If at last known player cell, wander within patrolRadius
+          if (searching && enemyCell.x === cache.lastKnownPlayerCell.x && enemyCell.y === cache.lastKnownPlayerCell.y) {
+            // Get patrolRadius from enemy type
+            let patrolRadius = 128; // default
+            if (entity.hasComponent('enemy')) {
+              const enemyComponent: IEnemyTypeDefinition = entity.getComponent('enemy') as unknown as IEnemyTypeDefinition;
+              if (enemyComponent) {
+                const typeId = enemyComponent.id;
+                if (typeId === 'basic') patrolRadius = BasicEnemy.patrolRadius ?? patrolRadius;
+                if (typeId === 'flanker') patrolRadius = FlankerEnemy.patrolRadius ?? patrolRadius;
+                if (typeId === 'bomber') patrolRadius = BomberEnemy.patrolRadius ?? patrolRadius;
+                if (typeId === 'ranged') patrolRadius = RangedEnemy.patrolRadius ?? patrolRadius;
+              }
+            }
+            // Pick a random walkable cell within patrolRadius
+            const possibleCells: Array<{ x: number, y: number }> = [];
+            const center = cache.lastKnownPlayerCell;
+            const maxDist = Math.floor(patrolRadius / grid.getCellSize());
+            for (let dy = -maxDist; dy <= maxDist; dy++) {
+              for (let dx = -maxDist; dx <= maxDist; dx++) {
+                const cx = center.x + dx;
+                const cy = center.y + dy;
+                if (!grid.inBounds(cx, cy)) continue;
+                if (!grid.isWalkable(cx, cy)) continue;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= maxDist) {
+                  possibleCells.push({ x: cx, y: cy });
+                }
+              }
+            }
+            if (possibleCells.length > 0) {
+              wanderTarget = possibleCells[Math.floor(Math.random() * possibleCells.length)];
+              cache.wanderTarget = wanderTarget;
+              path = Pathfinding.findPath(grid, enemyCell, wanderTarget);
+            }
+          }
+        } else {
+          cache.wanderTarget = undefined; // Clear wander target if player is found
         }
         this.pathCache.set(entity, {
           ...cache,
@@ -205,7 +251,8 @@ export class AIBehaviorSystem extends System {
           waypointIndex: 0,
           lastEnemyCell: { ...enemyCell },
           lastTargetCell: { ...targetCell },
-          lastKnownPlayerCell: { ...cache.lastKnownPlayerCell }
+          lastKnownPlayerCell: { ...cache.lastKnownPlayerCell },
+          wanderTarget: cache.wanderTarget
         });
         cache = this.pathCache.get(entity);
         if (cache && cache.path.length > 1 && cache.waypointIndex < cache.path.length) {
@@ -221,6 +268,10 @@ export class AIBehaviorSystem extends System {
             moveDir = { x: dx / dist, y: dy / dist };
           } else {
             cache.waypointIndex++;
+            // If reached wander target, clear it (will pick a new one next frame)
+            if (cache.wanderTarget && nextWaypoint.x === cache.wanderTarget.x && nextWaypoint.y === cache.wanderTarget.y) {
+              cache.wanderTarget = undefined;
+            }
           }
           controller.setMoveDirection(moveDir);
           controller.setAimDirection(moveDir);
