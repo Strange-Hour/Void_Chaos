@@ -172,19 +172,6 @@ export const MovementPatternRegistry = {
 };
 ```
 
----
-
-## Updates and Changes
-
-### [2024-06-09] - Documentation Overhaul
-
-- Updated directory structure and pattern descriptions
-- Added dolphin diagrams for system flow and state transitions
-- Clarified state machine and transition logic
-- Expanded usage and extensibility documentation
-
----
-
 ## See Also
 
 - `types.ts` for type definitions
